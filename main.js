@@ -1,3 +1,4 @@
+var BUILD_VERSION = '20260608.19';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -145,7 +146,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage18' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.19' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
