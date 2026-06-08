@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.6';
+var BUILD_VERSION = '20260609.7';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -85,6 +85,10 @@ var soundMuted = localStorage.getItem('sdlpal_sound_muted') === '1';
 var musicMuted = soundMuted;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
+var dialogVoiceAudio = null;
+var dialogVoiceManifestPromise = null;
+var dialogVoiceIds = null;
+var dialogVoiceToken = 0;
 
 function clampExpMultiplier(value) {
     var n = parseInt(value, 10);
@@ -267,6 +271,7 @@ function toggleSoundMute() {
         } catch (e) {}
     }
     if (soundMuted) {
+        stopDialogVoice();
         pauseHtmlBgmForBackground();
         for (var i = 0; i < audioContexts.length; i++) {
             try { audioContexts[i] && audioContexts[i].suspend && audioContexts[i].suspend(); } catch (e) {}
@@ -319,6 +324,7 @@ function unlockHtmlBgmAudio() {
 
 
 function pauseHtmlBgmForBackground() {
+    stopDialogVoice();
     if (htmlBgmAudio) {
         try { htmlBgmAudio.pause(); } catch (e) {}
     }
@@ -349,7 +355,7 @@ function playHtmlBgm(track, loop) {
     try {
         a.loop = !!loop;
         a.muted = false;
-        a.volume = 0.9;
+        a.volume = dialogVoiceAudio && !dialogVoiceAudio.paused ? 0.35 : 0.9;
         var sameTrack = a.src.indexOf('data/bgm/' + String(n).padStart(3, '0') + '.m4a') >= 0;
         if (!sameTrack) {
             a.src = url;
@@ -407,6 +413,93 @@ async function playJsBgm(track, loop) {
     } catch (e) {
         Module.printErr('[jsbgm] failed ' + key + ': ' + (e && e.message ? e.message : e));
     }
+}
+
+
+function voiceUrlForMsgId(msgId) {
+    var id = Number(msgId) || 0;
+    var sid = String(id).padStart(5, '0');
+    return 'data/voice/' + sid.slice(0, 2) + '/' + sid + '.mp3?v=' + encodeURIComponent(BUILD_VERSION);
+}
+
+function ensureDialogVoiceAudio() {
+    if (!dialogVoiceAudio) {
+        dialogVoiceAudio = document.createElement('audio');
+        dialogVoiceAudio.setAttribute('playsinline', '');
+        dialogVoiceAudio.setAttribute('webkit-playsinline', '');
+        dialogVoiceAudio.preload = 'auto';
+        dialogVoiceAudio.volume = 1.0;
+        dialogVoiceAudio.muted = false;
+        document.body.appendChild(dialogVoiceAudio);
+    }
+    return dialogVoiceAudio;
+}
+
+function setDialogVoiceDucking(active) {
+    try {
+        if (htmlBgmAudio && jsBgmTrack && !soundMuted && !musicMuted) {
+            htmlBgmAudio.volume = active ? 0.35 : 0.9;
+        }
+    } catch (e) {}
+    try {
+        if (jsBgmGain) jsBgmGain.gain.value = active ? 0.30 : 0.85;
+    } catch (e) {}
+}
+
+function loadDialogVoiceManifest() {
+    if (dialogVoiceIds) return Promise.resolve(dialogVoiceIds);
+    if (!dialogVoiceManifestPromise) {
+        dialogVoiceManifestPromise = fetch('data/voice/manifest.json?v=' + encodeURIComponent(BUILD_VERSION))
+            .then(function(resp) {
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                return resp.json();
+            })
+            .then(function(manifest) {
+                dialogVoiceIds = {};
+                (manifest.ids || []).forEach(function(id) { dialogVoiceIds[String(id)] = true; });
+                Module.print('[voice] loaded ' + (manifest.count || Object.keys(dialogVoiceIds).length) + ' dialog voices');
+                return dialogVoiceIds;
+            })
+            .catch(function(e) {
+                Module.printErr('[voice] manifest failed: ' + (e && e.message ? e.message : e));
+                dialogVoiceIds = {};
+                return dialogVoiceIds;
+            });
+    }
+    return dialogVoiceManifestPromise;
+}
+
+function playDialogVoice(msgId) {
+    if (soundMuted) return 0;
+    var id = Number(msgId) || 0;
+    var token = ++dialogVoiceToken;
+    loadDialogVoiceManifest().then(function(ids) {
+        if (token !== dialogVoiceToken || !ids[String(id)] || soundMuted) return;
+        var a = ensureDialogVoiceAudio();
+        try { a.pause(); } catch (e) {}
+        a.src = voiceUrlForMsgId(id);
+        a.currentTime = 0;
+        a.muted = false;
+        a.volume = 1.0;
+        setDialogVoiceDucking(true);
+        a.onended = function() { if (token === dialogVoiceToken) setDialogVoiceDucking(false); };
+        a.onerror = function() { if (token === dialogVoiceToken) setDialogVoiceDucking(false); };
+        var p = a.play();
+        if (p && p.catch) p.catch(function(e) {
+            if (token === dialogVoiceToken) setDialogVoiceDucking(false);
+            Module.printErr('[voice] play failed ' + id + ': ' + (e && e.message ? e.message : e));
+        });
+    });
+    return 1;
+}
+
+function stopDialogVoice() {
+    dialogVoiceToken++;
+    if (dialogVoiceAudio) {
+        try { dialogVoiceAudio.pause(); } catch (e) {}
+        try { dialogVoiceAudio.currentTime = 0; } catch (e) {}
+    }
+    setDialogVoiceDucking(false);
 }
 
 window.SDLPAL_playBgm = function(track, loop) {
@@ -488,7 +581,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.37' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.7' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -527,6 +620,8 @@ var Module = {
     },
     onRuntimeInitialized:function() { onRuntimeInitialized(); }
 };
+Module.SDLPAL_playDialogVoice = playDialogVoice;
+Module.SDLPAL_stopDialogVoice = stopDialogVoice;
 
 function onRuntimeInitialized() {
     try { FS.mkdir('/data'); } catch (e) {}
