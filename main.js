@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.27';
+var BUILD_VERSION = '20260608.28';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -63,20 +63,28 @@ var installPromise = null;
 var gameStarted = false;
 var audioUnlocked = false;
 var audioContexts = [];
+var NativeAudioContextCtor = null;
+var sharedAudioContext = null;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
 
 (function installAudioContextUnlockHook() {
-    var NativeAudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!NativeAudioContext) return;
+    NativeAudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!NativeAudioContextCtor) return;
     function WrappedAudioContext() {
-        var ctx = new (Function.prototype.bind.apply(NativeAudioContext, [null].concat(Array.prototype.slice.call(arguments))))();
+        if (isIOSAudioDevice() && sharedAudioContext) {
+            audioContexts.push(sharedAudioContext);
+            if (audioUnlocked) window.setTimeout(resumeAudioContexts, 0);
+            return sharedAudioContext;
+        }
+        var ctx = new (Function.prototype.bind.apply(NativeAudioContextCtor, [null].concat(Array.prototype.slice.call(arguments))))();
         audioContexts.push(ctx);
+        if (isIOSAudioDevice() && !sharedAudioContext) sharedAudioContext = ctx;
         if (audioUnlocked) window.setTimeout(resumeAudioContexts, 0);
         return ctx;
     }
-    WrappedAudioContext.prototype = NativeAudioContext.prototype;
-    Object.setPrototypeOf && Object.setPrototypeOf(WrappedAudioContext, NativeAudioContext);
+    WrappedAudioContext.prototype = NativeAudioContextCtor.prototype;
+    Object.setPrototypeOf && Object.setPrototypeOf(WrappedAudioContext, NativeAudioContextCtor);
 
     window.AudioContext = WrappedAudioContext;
     window.webkitAudioContext = WrappedAudioContext;
@@ -87,31 +95,42 @@ function isIOSAudioDevice() {
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
+function ensureSharedAudioContext() {
+    if (!isIOSAudioDevice() || !NativeAudioContextCtor) return null;
+    if (!sharedAudioContext) {
+        try {
+            sharedAudioContext = new NativeAudioContextCtor();
+            audioContexts.push(sharedAudioContext);
+        } catch (e) {
+            sharedAudioContext = null;
+        }
+    }
+    return sharedAudioContext;
+}
+
+function kickAudioContext(ctx) {
+    if (!ctx) return;
+    try {
+        if (ctx.state === 'suspended') ctx.resume();
+        var buffer = ctx.createBuffer(1, 1, 22050);
+        var source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+    } catch (e) {}
+}
+
 function resumeAudioContexts() {
     audioUnlocked = true;
+    ensureSharedAudioContext();
     for (var i = 0; i < audioContexts.length; i++) {
-        var ctx = audioContexts[i];
-        try {
-            if (ctx && ctx.state === 'suspended') ctx.resume();
-            /*
-             * After iOS backgrounds a page, a resume() alone sometimes leaves
-             * the output graph idle until a node is started again.  Start a
-             * one-sample silent source to kick the audio session without
-             * adding audible sound.
-             */
-            if (ctx && ctx.state === 'running' && isIOSAudioDevice()) {
-                var buffer = ctx.createBuffer(1, 1, 22050);
-                var source = ctx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(ctx.destination);
-                source.start(0);
-            }
-        } catch (e) {}
+        kickAudioContext(audioContexts[i]);
     }
 }
 
 function unlockAudioForIOS() {
     audioUnlocked = true;
+    ensureSharedAudioContext();
     resumeAudioContexts();
 }
 
@@ -174,7 +193,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.27' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.28' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -481,7 +500,11 @@ function playIntroVideo(src) {
         var video = document.createElement('video');
         video.src = src;
         video.playsInline = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
         video.autoplay = true;
+        video.muted = false;
+        video.volume = 1.0;
         video.preload = 'auto';
         video.controls = false;
         video.style.width = '100%';
@@ -686,21 +709,18 @@ async function launch() {
     unlockAudioForIOS();
     if (isIOSAudioDevice()) {
         /*
-         * iOS needs SDL's WebAudio graph to be created by the Start tap.
-         * Start WASM immediately, but let C render BGM at near-silent volume
-         * during the JS intro. After intro, restore normal BGM volume.
+         * Create/unlock one shared AudioContext in the Start tap, then let the
+         * MP4 intro play with its own audio.  After the videos, SDL reuses
+         * that already-unlocked context instead of creating a locked one.
          */
-        setIntroPlaying(true);
-        setVirtualControlsVisible(true);
-        runGame();
+        unlockAudioForIOS();
         window.setTimeout(resumeAudioContexts, 0);
-        window.setTimeout(resumeAudioContexts, 300);
         await playIntroSequence();
         introInputBlockUntil = Date.now() + 900;
         clearGameInput();
         unlockAudioForIOS();
-        setIntroPlaying(false);
-        clearGameInput();
+        setVirtualControlsVisible(true);
+        runGame();
         window.setTimeout(clearGameInput, 120);
         window.setTimeout(clearGameInput, 450);
         window.setTimeout(resumeAudioContexts, 0);
