@@ -62,42 +62,10 @@ var installPromise = null;
 var gameStarted = false;
 var audioUnlocked = false;
 var audioContexts = [];
-var gameAudioMuted = false;
-var gameAudioGains = [];
 
 (function installAudioContextUnlockHook() {
     var NativeAudioContext = window.AudioContext || window.webkitAudioContext;
     if (!NativeAudioContext) return;
-    var nativeConnect = window.AudioNode && window.AudioNode.prototype &&
-        window.AudioNode.prototype.connect;
-
-    function installGameAudioGain(ctx) {
-        if (!ctx || ctx.__sdlpalGameGain) return;
-        try {
-            var gain = nativeConnect ? ctx.createGain() : null;
-            if (!gain) return;
-            gain.gain.value = gameAudioMuted ? 0 : 1;
-            ctx.__sdlpalGameGain = gain;
-            gameAudioGains.push(gain);
-            nativeConnect.call(gain, ctx.destination);
-        } catch (e) {}
-    }
-
-    if (nativeConnect && !window.__sdlpalAudioConnectPatched) {
-        window.__sdlpalAudioConnectPatched = true;
-        window.AudioNode.prototype.connect = function(destination) {
-            try {
-                var ctx = this.context;
-                if (ctx && ctx.__sdlpalGameGain &&
-                    destination === ctx.destination &&
-                    this !== ctx.__sdlpalGameGain) {
-                    arguments[0] = ctx.__sdlpalGameGain;
-                }
-            } catch (e) {}
-            return nativeConnect.apply(this, arguments);
-        };
-    }
-
     function WrappedAudioContext() {
         if (isIOSAudioDevice() && audioContexts.length > 0 &&
             audioContexts[0] && audioContexts[0].state !== 'closed') {
@@ -105,7 +73,6 @@ var gameAudioGains = [];
         }
         var ctx = new (Function.prototype.bind.apply(NativeAudioContext, [null].concat(Array.prototype.slice.call(arguments))))();
         audioContexts.push(ctx);
-        installGameAudioGain(ctx);
         if (audioUnlocked) window.setTimeout(resumeAudioContexts, 0);
         return ctx;
     }
@@ -123,7 +90,6 @@ function isIOSAudioDevice() {
 
 function resumeAudioContexts() {
     audioUnlocked = true;
-    setGameAudioMuted(gameAudioMuted);
     for (var i = 0; i < audioContexts.length; i++) {
         var ctx = audioContexts[i];
         try {
@@ -148,14 +114,6 @@ function unlockAudioForIOS() {
     resumeAudioContexts();
 }
 
-function setGameAudioMuted(muted) {
-    gameAudioMuted = !!muted;
-    for (var i = 0; i < gameAudioGains.length; i++) {
-        try {
-            gameAudioGains[i].gain.value = gameAudioMuted ? 0 : 1;
-        } catch (e) {}
-    }
-}
 
 ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'click'].forEach(function(type) {
     window.addEventListener(type, unlockAudioForIOS, {capture: true, passive: true});
@@ -172,7 +130,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage15' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage16' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -654,22 +612,16 @@ async function launch() {
     unlockAudioForIOS();
     if (isIOSAudioDevice()) {
         /*
-         * iOS Safari needs SDL's actual WebAudio nodes to be created inside
-         * the user gesture.  Start wasm now, but mute its WebAudio output
-         * until the MP4 intro has finished so MIDI will not play over video.
+         * iOS Safari is strict: the SDL WebAudio graph must be created in the
+         * original tap/click gesture.  Playing the MP4 intro before/over the
+         * game can steal or suspend the audio session on iPhone, so iOS skips
+         * the JS intro and enters the game immediately.
          */
-        setGameAudioMuted(true);
         setVirtualControlsVisible(true);
         runGame();
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 300);
-        await playIntroSequence();
-        unlockAudioForIOS();
-        setGameAudioMuted(false);
-        window.setTimeout(function() {
-            resumeAudioContexts();
-            setGameAudioMuted(false);
-        }, 500);
+        window.setTimeout(resumeAudioContexts, 1000);
         return;
     }
     await playIntroSequence();
