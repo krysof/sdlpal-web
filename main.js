@@ -72,7 +72,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage5' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage6' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -162,8 +162,9 @@ function readTextIfExists(path) {
     try { return FS.readFile(path, {encoding: 'utf8'}); } catch (e) { return null; }
 }
 
-function dataUrl(path) {
-    return 'data/' + path.split('/').map(encodeURIComponent).join('/');
+function dataUrl(path, version) {
+    var url = 'data/' + path.split('/').map(encodeURIComponent).join('/');
+    return version ? url + '?v=' + encodeURIComponent(version) : url;
 }
 
 function syncfsPromise(populate) {
@@ -173,7 +174,7 @@ function syncfsPromise(populate) {
 }
 
 async function fetchArrayBufferWithProgress(url, label, startBytes, totalBytes) {
-    var response = await fetch(url, {cache: 'force-cache'});
+    var response = await fetch(url, {cache: 'no-store'});
     if (!response.ok) throw new Error('HTTP ' + response.status + ' for ' + url);
 
     var contentLength = parseInt(response.headers.get('content-length') || '0');
@@ -227,7 +228,7 @@ async function installBundledDataIfNeeded(force) {
             if (parent) mkdirp(parent);
 
             Module.setStatus(strBundledDownloading + ': ' + f.path + ' (' + doneBytes + '/' + manifest.total_size + ')');
-            var bytes = await fetchArrayBufferWithProgress(dataUrl(f.path), strBundledDownloading + ': ' + f.path, doneBytes, manifest.total_size);
+            var bytes = await fetchArrayBufferWithProgress(dataUrl(f.path, manifest.version), strBundledDownloading + ': ' + f.path, doneBytes, manifest.total_size);
             if (bytes.length !== f.size) throw new Error('Size mismatch for ' + f.path + ': got ' + bytes.length + ', expected ' + f.size);
             FS.writeFile(outPath, bytes, {encoding: 'binary'});
             doneBytes += bytes.length;
