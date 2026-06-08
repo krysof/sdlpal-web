@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.5';
+var BUILD_VERSION = '20260609.6';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -863,6 +863,7 @@ async function playIntroSequence() {
 
 var virtualControlsInitialized = false;
 var isBattleActiveFunc = null;
+var getPartyMemberCountFunc = null;
 var setIntroPlayingFunc = null;
 var playOpeningMenuMusicFunc = null;
 var battlePollTimer = null;
@@ -877,7 +878,7 @@ function keyInfo(key) {
         'Enter': [13, 'Enter'], ' ': [32, 'Space'], 'Escape': [27, 'Escape'],
         'r': [82, 'KeyR'], 'a': [65, 'KeyA'], 'd': [68, 'KeyD'],
         'e': [69, 'KeyE'], 'w': [87, 'KeyW'], 'q': [81, 'KeyQ'],
-        'f': [70, 'KeyF'], 's': [83, 'KeyS']
+        'f': [70, 'KeyF'], 's': [83, 'KeyS'], 'c': [67, 'KeyC']
     };
     var v = table[key] || [0, ''];
     return {keyCode: v[0], which: v[0], code: v[1]};
@@ -1018,6 +1019,11 @@ function initVirtualControls() {
     } catch (e) {
         isBattleActiveFunc = null;
     }
+    try {
+        getPartyMemberCountFunc = Module.cwrap('EMSCRIPTEN_get_party_member_count', 'number', []);
+    } catch (e) {
+        getPartyMemberCountFunc = null;
+    }
     battlePollTimer = window.setInterval(updateBattleControls, 400);
     updateBattleControls();
 }
@@ -1035,6 +1041,11 @@ function updateBattleControls() {
     var active = false;
     try { active = !!isBattleActiveFunc(); } catch (e) { active = false; }
     controls.classList.toggle('battle-active', active);
+    var canSwitchParty = false;
+    if (getPartyMemberCountFunc && !active) {
+        try { canSwitchParty = getPartyMemberCountFunc() > 1; } catch (e) { canSwitchParty = false; }
+    }
+    controls.classList.toggle('party-switch-active', canSwitchParty);
 }
 
 function setIntroPlaying(playing) {
