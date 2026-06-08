@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>真·仙剑奇侠传 20260609.3</title>
+    <title>真·仙剑奇侠传 20260609.4</title>
     <link rel="icon" href="icon.png" type="image/png">
     <style>
       :root {
@@ -300,10 +300,10 @@
         height: 62px;
         font-size: 28px;
       }
-      .vc-pad [data-key="ArrowUp"] { left: 16px; top: 16px; }
-      .vc-pad [data-key="ArrowRight"] { right: 16px; top: 16px; }
-      .vc-pad [data-key="ArrowLeft"] { left: 16px; bottom: 16px; }
-      .vc-pad [data-key="ArrowDown"] { right: 16px; bottom: 16px; }
+      .vc-pad [data-key="Home"] { left: 16px; top: 16px; }
+      .vc-pad [data-key="PageUp"] { right: 16px; top: 16px; }
+      .vc-pad [data-key="End"] { left: 16px; bottom: 16px; }
+      .vc-pad [data-key="PageDown"] { right: 16px; bottom: 16px; }
       .vc-actions {
         position: fixed;
         right: max(16px, env(safe-area-inset-right));
@@ -333,10 +333,10 @@
         .vc-btn { width: 48px; height: 48px; }
         .vc-pad { width: 146px; height: 146px; }
         .vc-pad .vc-btn { width: 54px; height: 54px; font-size: 24px; }
-        .vc-pad [data-key="ArrowUp"] { left: 14px; top: 14px; }
-        .vc-pad [data-key="ArrowRight"] { right: 14px; top: 14px; }
-        .vc-pad [data-key="ArrowLeft"] { left: 14px; bottom: 14px; }
-        .vc-pad [data-key="ArrowDown"] { right: 14px; bottom: 14px; }
+        .vc-pad [data-key="Home"] { left: 14px; top: 14px; }
+        .vc-pad [data-key="PageUp"] { right: 14px; top: 14px; }
+        .vc-pad [data-key="End"] { left: 14px; bottom: 14px; }
+        .vc-pad [data-key="PageDown"] { right: 14px; bottom: 14px; }
         .vc-actions { grid-template-columns: repeat(2, 58px); gap: 8px; }
         .vc-actions .vc-btn { width: 58px; height: 48px; font-size: 14px; }
         .vc-battle { top: max(10px, env(safe-area-inset-top)); bottom: auto; }
@@ -360,10 +360,10 @@
 
     <div id="mobileControls" aria-label="虛擬按鍵">
       <div class="vc-pad">
-        <button class="vc-btn" data-key="ArrowUp">↖</button>
-        <button class="vc-btn" data-key="ArrowLeft">↙</button>
-        <button class="vc-btn" data-key="ArrowRight">↗</button>
-        <button class="vc-btn" data-key="ArrowDown">↘</button>
+        <button class="vc-btn" data-key="Home" title="Home">↖</button>
+        <button class="vc-btn" data-key="End" title="End">↙</button>
+        <button class="vc-btn" data-key="PageUp" title="PageUp">↗</button>
+        <button class="vc-btn" data-key="PageDown" title="PageDown">↘</button>
       </div>
       <div class="vc-actions">
         <button class="vc-btn" data-key="Enter">回車</button>
@@ -385,9 +385,9 @@
     <div id="loadingScreen">
       <div class="loading-card">
         <img id="logo" src="icon.png" alt="SDLPAL">
-        <h1>真·仙剑奇侠传 20260609.3</h1>
+        <h1>真·仙剑奇侠传 20260609.4</h1>
         <div class="subtitle">SDLPAL Web Edition</div>
-        <div id="buildVersion">版本 20260609.3</div>
+        <div id="buildVersion">版本 20260609.4</div>
         <div class="tuning-panel" id="tuningPanel">
           <label class="tuning-setting"><span id="expLabelText">戰鬥經驗</span><input id="expMultiplier" type="range" min="1" max="50" step="1" value="5"><span class="tuning-value"><span id="expMultiplierValue">5</span> 倍</span></label>
           <label class="tuning-setting"><span id="speedLabelText">遊戲速度</span><input id="gameSpeed" type="range" min="1" max="5" step="1" value="1"><span class="tuning-value"><span id="gameSpeedValue">1</span> 倍</span></label>
@@ -401,8 +401,8 @@
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=20260609.3"></script>
-    <script type="text/javascript" src="sdlpal.js?v=20260609.3"></script>
+    <script type="text/javascript" src="main.js?v=20260609.4"></script>
+    <script type="text/javascript" src="sdlpal.js?v=20260609.4"></script>
 
     <script type="text/javascript">
       var userLang = navigator.language || navigator.userLanguage;

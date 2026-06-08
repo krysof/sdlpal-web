@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.3';
+var BUILD_VERSION = '20260609.4';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -871,6 +871,8 @@ function keyInfo(key) {
     var table = {
         'ArrowUp': [38, 'ArrowUp'], 'ArrowDown': [40, 'ArrowDown'],
         'ArrowLeft': [37, 'ArrowLeft'], 'ArrowRight': [39, 'ArrowRight'],
+        'Home': [36, 'Home'], 'PageUp': [33, 'PageUp'],
+        'End': [35, 'End'], 'PageDown': [34, 'PageDown'],
         'Enter': [13, 'Enter'], ' ': [32, 'Space'], 'Escape': [27, 'Escape'],
         'r': [82, 'KeyR'], 'a': [65, 'KeyA'], 'd': [68, 'KeyD'],
         'e': [69, 'KeyE'], 'w': [87, 'KeyW'], 'q': [81, 'KeyQ'],
