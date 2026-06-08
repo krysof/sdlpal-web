@@ -60,6 +60,60 @@ var loadingElement = document.getElementById('loadingScreen');
 var startButtonElement = document.getElementById('btnStartGame');
 var installPromise = null;
 var gameStarted = false;
+var audioUnlocked = false;
+var audioContexts = [];
+
+(function installAudioContextUnlockHook() {
+    var NativeAudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!NativeAudioContext) return;
+
+    function WrappedAudioContext() {
+        var ctx = new (Function.prototype.bind.apply(NativeAudioContext, [null].concat(Array.prototype.slice.call(arguments))))();
+        audioContexts.push(ctx);
+        if (audioUnlocked) window.setTimeout(resumeAudioContexts, 0);
+        return ctx;
+    }
+    WrappedAudioContext.prototype = NativeAudioContext.prototype;
+    Object.setPrototypeOf && Object.setPrototypeOf(WrappedAudioContext, NativeAudioContext);
+
+    window.AudioContext = WrappedAudioContext;
+    window.webkitAudioContext = WrappedAudioContext;
+})();
+
+function isIOSAudioDevice() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function resumeAudioContexts() {
+    audioUnlocked = true;
+    for (var i = 0; i < audioContexts.length; i++) {
+        var ctx = audioContexts[i];
+        try {
+            if (ctx && ctx.state === 'suspended') ctx.resume();
+        } catch (e) {}
+    }
+}
+
+function unlockAudioForIOS() {
+    audioUnlocked = true;
+    var Ctor = window.AudioContext || window.webkitAudioContext;
+    if (Ctor && audioContexts.length === 0) {
+        try {
+            var ctx = new Ctor();
+            var buffer = ctx.createBuffer(1, 1, 22050);
+            var source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(ctx.destination);
+            source.start(0);
+        } catch (e) {}
+    }
+    resumeAudioContexts();
+}
+
+['touchstart', 'touchend', 'pointerdown', 'pointerup', 'click'].forEach(function(type) {
+    window.addEventListener(type, unlockAudioForIOS, {capture: true, passive: true});
+});
 
 window.addEventListener('load', function () {
     tipsElement = document.getElementById('tips');
@@ -72,7 +126,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage12' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage13' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -481,6 +535,7 @@ function initVirtualControls() {
         var pressed = false;
         function down(e) {
             e.preventDefault();
+            unlockAudioForIOS();
             if (pressed) return;
             pressed = true;
             btn.classList.add('pressed');
@@ -550,7 +605,24 @@ async function launch() {
     var deleteButton = document.getElementById('btnDeleteData');
     if (deleteButton) deleteButton.style.display = 'none';
     hideLoadingScreen();
+    unlockAudioForIOS();
+    if (isIOSAudioDevice()) {
+        /*
+         * iOS Safari requires WebAudio to be created/resumed directly from a
+         * user gesture.  If we wait until the MP4 intro finishes, SDL's audio
+         * context is born too late and stays silent.  Start wasm immediately
+         * on iPhone/iPad, then play the MP4 overlay on top.
+         */
+        setVirtualControlsVisible(true);
+        runGame();
+        window.setTimeout(resumeAudioContexts, 0);
+        window.setTimeout(resumeAudioContexts, 500);
+        await playIntroSequence();
+        unlockAudioForIOS();
+        return;
+    }
     await playIntroSequence();
+    unlockAudioForIOS();
     setVirtualControlsVisible(true);
     runGame();
 }
