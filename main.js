@@ -72,7 +72,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage1' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage2' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
