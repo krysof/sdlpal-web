@@ -72,7 +72,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage2' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage3' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -348,6 +348,91 @@ async function runGame() {
     }
 }
 
+function playIntroVideo(src) {
+    return new Promise(function(resolve) {
+        var canvas = Module.canvas || document.getElementById('canvas');
+        var wrap = document.createElement('div');
+        wrap.style.position = 'fixed';
+        wrap.style.background = '#000';
+        wrap.style.display = 'flex';
+        wrap.style.alignItems = 'center';
+        wrap.style.justifyContent = 'center';
+        wrap.style.zIndex = '999';
+        wrap.style.overflow = 'hidden';
+
+        function updateBounds() {
+            if (canvas) {
+                var rect = canvas.getBoundingClientRect();
+                wrap.style.left = rect.left + 'px';
+                wrap.style.top = rect.top + 'px';
+                wrap.style.width = rect.width + 'px';
+                wrap.style.height = rect.height + 'px';
+            } else {
+                wrap.style.left = '0';
+                wrap.style.top = '0';
+                wrap.style.width = '100vw';
+                wrap.style.height = '100vh';
+            }
+        }
+
+        var video = document.createElement('video');
+        video.src = src;
+        video.playsInline = true;
+        video.autoplay = true;
+        video.preload = 'auto';
+        video.controls = false;
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.objectFit = 'contain';
+        video.style.background = '#000';
+        video.style.imageRendering = 'pixelated';
+
+        var done = false;
+        function cleanup() {
+            if (done) return;
+            done = true;
+            window.removeEventListener('resize', updateBounds);
+            window.removeEventListener('keydown', skip);
+            window.removeEventListener('keyup', skip);
+            if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+            resolve();
+        }
+        function skip(e) {
+            if (e) e.preventDefault();
+            cleanup();
+        }
+
+        video.addEventListener('ended', cleanup);
+        video.addEventListener('error', function(e) {
+            Module.printErr('Intro video failed: ' + src);
+            cleanup();
+        });
+        wrap.addEventListener('click', skip);
+        window.addEventListener('keydown', skip);
+        window.addEventListener('keyup', skip);
+        window.addEventListener('resize', updateBounds);
+
+        wrap.appendChild(video);
+        updateBounds();
+        document.body.appendChild(wrap);
+
+        var p = video.play();
+        if (p && p.catch) p.catch(function(e) {
+            Module.printErr('Intro autoplay failed, skipping: ' + src);
+            cleanup();
+        });
+    });
+}
+
+async function playIntroSequence() {
+    /*
+     * Play MP4 intros before entering wasm.  This avoids blocking C with
+     * Asyncify while SDL browser callbacks are active.
+     */
+    await playIntroVideo('data/1.mp4');
+    await playIntroVideo('data/2.mp4');
+}
+
 async function launch() {
     var checkFile = false;
     try {
@@ -373,6 +458,7 @@ async function launch() {
     var deleteButton = document.getElementById('btnDeleteData');
     if (deleteButton) deleteButton.style.display = 'none';
     hideLoadingScreen();
+    await playIntroSequence();
     runGame();
 }
 
