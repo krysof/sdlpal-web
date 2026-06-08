@@ -11,6 +11,7 @@ var strBundledChecking = 'Checking bundled game data...';
 var strBundledDownloading = 'Downloading bundled game data';
 var strBundledCached = 'Bundled game data is ready.';
 var strBundledFailed = 'Failed to install bundled game data. See JavaScript console.';
+var strStarting = 'Starting game...';
 
 var userLang = navigator.language || navigator.userLanguage;
 if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
@@ -27,6 +28,7 @@ if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
     strBundledDownloading = '正在下载内置游戏数据';
     strBundledCached = '内置游戏数据已就绪。';
     strBundledFailed = '安装内置游戏数据失败，请查看浏览器控制台。';
+    strStarting = '正在进入游戏...';
 } else if (userLang === 'zh-TW' || userLang.startsWith('zh-Hant') ) {
     strSyncingFs = '正在同步檔案系統...';
     strDone = '完成。';
@@ -41,12 +43,14 @@ if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
     strBundledDownloading = '正在下載內建遊戲資料';
     strBundledCached = '內建遊戲資料已就緒。';
     strBundledFailed = '安裝內建遊戲資料失敗，請查看瀏覽器主控台。';
+    strStarting = '正在進入遊戲...';
 }
 
 var statusElement = document.getElementById('status');
 var progressElement = document.getElementById('progress');
 var spinnerElement = document.getElementById('spinner');
 var tipsElement;
+var loadingElement = document.getElementById('loadingScreen');
 var installPromise = null;
 var gameStarted = false;
 
@@ -60,6 +64,9 @@ var Module = {
     postRun: [],
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
+    locateFile: function(path) {
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=audiofix1' : path;
+    },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
         canvas.addEventListener('webglcontextlost', function(e) {
@@ -105,12 +112,18 @@ function onRuntimeInitialized() {
     spinnerElement.style.display = 'inline-block';
     FS.syncfs(true, function (err) {
         if (err) Module.printErr(err);
-        installBundledDataIfNeeded(false).catch(function(e) {
+        installBundledDataIfNeeded(false).then(function() {
+            return launch();
+        }).catch(function(e) {
             Module.printErr(e && e.stack ? e.stack : e);
             Module.setStatus(strBundledFailed);
             spinnerElement.style.display = 'none';
         });
     });
+}
+
+function hideLoadingScreen() {
+    if (loadingElement) loadingElement.classList.add('hidden');
 }
 
 function mkdirp(path) {
@@ -335,10 +348,11 @@ async function launch() {
         Module.setStatus(strNoData);
         return;
     }
-    document.getElementById('btnLaunch').style = 'display:none';
-    document.getElementById('btnLoadZip').style = 'display:none';
-    document.getElementById('btnDeleteData').style = 'display:none';
-    if (tipsElement) tipsElement.style = 'display:none';
+    Module.setStatus(strStarting);
+    spinnerElement.style.display = 'none';
+    var deleteButton = document.getElementById('btnDeleteData');
+    if (deleteButton) deleteButton.style.display = 'none';
+    hideLoadingScreen();
     runGame();
 }
 

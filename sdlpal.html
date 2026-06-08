@@ -1,168 +1,192 @@
 <!doctype html>
-<html lang="en-us">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>SDLPal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>仙剑奇侠传 Web</title>
     <style>
-      body {
-        font-family: arial;
-        margin: 0;
-        padding: none;
+      :root {
+        color-scheme: dark;
+        --gold: #f6d878;
+        --gold2: #a66b2e;
+        --red: #8e1d22;
+        --panel: rgba(18, 11, 10, .86);
       }
-
-      .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
-      div.emscripten { text-align: center; }      
-      div.emscripten_border { border: 1px solid black; }
-      /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-      canvas.emscripten { border: 0px none; background-color: black; }
-
-      #emscripten_logo {
-        display: inline-block;
-        margin: 0;
-      }
-
-      .spinner {
-        height: 30px;
-        width: 30px;
-        margin: 0;
-        margin-top: 20px;
-        margin-left: 20px;
-        display: inline-block;
-        vertical-align: top;
-
-        -webkit-animation: rotation .8s linear infinite;
-        -moz-animation: rotation .8s linear infinite;
-        -o-animation: rotation .8s linear infinite;
-        animation: rotation 0.8s linear infinite;
-
-        border-left: 5px solid rgb(235, 235, 235);
-        border-right: 5px solid rgb(235, 235, 235);
-        border-bottom: 5px solid rgb(235, 235, 235);
-        border-top: 5px solid rgb(120, 120, 120);
-        
-        border-radius: 100%;
-        background-color: rgb(189, 215, 46);
-      }
-
-      .footer {
-        position: fixed;
-        left: 0px;
-        bottom: 0px;
+      html, body {
         width: 100%;
-        height: 50px;
-        z-index: 9999;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 18%, rgba(151, 45, 36, .45), transparent 34%),
+          radial-gradient(circle at 50% 100%, rgba(246, 216, 120, .13), transparent 34%),
+          linear-gradient(180deg, #0b0505 0%, #1b0a08 48%, #050303 100%);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
+      }
+      #gameFrame {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #000;
+      }
+      canvas.emscripten {
+        display: block;
+        width: min(100vw, calc(100vh * 1.6));
+        height: min(100vh, calc(100vw / 1.6));
+        image-rendering: pixelated;
+        background: #000;
+        outline: none;
+      }
+      #loadingScreen {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at 50% 18%, rgba(196, 60, 43, .36), transparent 32%),
+          radial-gradient(circle at 50% 88%, rgba(246, 216, 120, .11), transparent 38%),
+          rgba(8, 4, 4, .94);
+        transition: opacity .45s ease, visibility .45s ease;
+      }
+      #loadingScreen.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .loading-card {
+        width: min(560px, calc(100vw - 40px));
+        box-sizing: border-box;
+        padding: 34px 30px 30px;
+        border: 1px solid rgba(246, 216, 120, .45);
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(50, 21, 17, .92), var(--panel));
+        box-shadow: 0 28px 90px rgba(0,0,0,.65), inset 0 0 60px rgba(246,216,120,.04);
         text-align: center;
       }
-
-      @-webkit-keyframes rotation {
-        from {-webkit-transform: rotate(0deg);}
-        to {-webkit-transform: rotate(360deg);}
+      #logo {
+        width: 86px;
+        height: 86px;
+        object-fit: contain;
+        margin-bottom: 10px;
+        filter: drop-shadow(0 8px 20px rgba(0,0,0,.55));
       }
-      @-moz-keyframes rotation {
-        from {-moz-transform: rotate(0deg);}
-        to {-moz-transform: rotate(360deg);}
+      h1 {
+        margin: 0;
+        color: var(--gold);
+        font-size: clamp(34px, 7vw, 56px);
+        line-height: 1.08;
+        letter-spacing: .08em;
+        text-shadow: 0 3px 0 rgba(0,0,0,.45), 0 0 22px rgba(246,216,120,.25);
       }
-      @-o-keyframes rotation {
-        from {-o-transform: rotate(0deg);}
-        to {-o-transform: rotate(360deg);}
+      .subtitle {
+        margin: 10px 0 24px;
+        color: rgba(255, 238, 190, .72);
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        font-size: 13px;
       }
-      @keyframes rotation {
-        from {transform: rotate(0deg);}
-        to {transform: rotate(360deg);}
+      .spinner {
+        width: 42px;
+        height: 42px;
+        margin: 0 auto 18px;
+        border: 3px solid rgba(246,216,120,.18);
+        border-top-color: var(--gold);
+        border-radius: 50%;
+        animation: rotation .85s linear infinite;
       }
-
+      @keyframes rotation { from { transform: rotate(0); } to { transform: rotate(360deg); } }
       #status {
-        display: inline-block;
-        vertical-align: top;
-        margin-top: 30px;
-        margin-left: 20px;
-        font-weight: bold;
-        color: rgb(120, 120, 120);
+        min-height: 24px;
+        color: #fff1c2;
+        font-weight: 700;
+        font-size: 15px;
       }
-
       #progress {
-        height: 20px;
-        width: 300px;
+        appearance: none;
+        width: 100%;
+        height: 12px;
+        margin-top: 18px;
+        border: 0;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255,255,255,.12);
       }
-
-      #controls {
-        display: inline-block;
-        float: right;
-        vertical-align: top;
-        margin-top: 30px;
-        margin-right: 20px;
+      #progress::-webkit-progress-bar { background: rgba(255,255,255,.12); }
+      #progress::-webkit-progress-value {
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--red), var(--gold));
       }
-
-      input[type=file] {
-        color: transparent;
-        font-size: 12pt;
+      #progress::-moz-progress-bar {
+        border-radius: 999px;
+        background: linear-gradient(90deg, var(--red), var(--gold));
       }
-
-      input[type=file]::-webkit-file-upload-button {
-        margin: 0px;
-        font-size: 12pt;
-        padding: 4px;
-        border: solid 1px #AACFE4;
-        width: 209px;
-        height: 31px;
-        border-radius: 5px;
-        box-shadow: 0px 0px 10px #ccc;
+      #tips {
+        margin-top: 18px;
+        color: rgba(255,255,255,.56);
+        font-size: 13px;
+        line-height: 1.55;
       }
-
-      button,#btnLaunch,#btnDeleteData,#btnDownloadSave {
-        margin: 0px;
-        font-size: 12pt;
-        padding: 4px;
-        border: solid 1px #AACFE4;
-        width: 209px;
-        border-radius: 5px;
-        box-shadow: 0px 0px 10px #ccc;
+      #utilityBar {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        z-index: 1001;
+        display: flex;
+        gap: 8px;
       }
-
+      #utilityBar button {
+        border: 1px solid rgba(246,216,120,.35);
+        border-radius: 999px;
+        background: rgba(0,0,0,.42);
+        color: #ffeec1;
+        padding: 8px 12px;
+        font-size: 13px;
+        backdrop-filter: blur(8px);
+      }
+      #utilityBar button:hover { background: rgba(142,29,34,.72); }
     </style>
   </head>
   <body>
-    <a href="http://sdlpal.github.io/">
-      <img src="icon.png"></img>
-    </a>
-
-    <div class="spinner" id='spinner'></div>
-    <div class="emscripten" id="status"></div>
-
-    <span id='controls'>
-      <span>
-        <input type="file" id="btnLoadZip" accept="application/zip" value="Load Zip" onchange="loadZip();">
-        <input type="button" id="btnDeleteData" value="Delete Data" onclick="clearData();">
-        <input type="button" id="btnDownloadSave" value="Download Saved Games" onclick="downloadSaves();">
-        <input type="button" id="btnLaunch" value="Launch" onclick="launch();">
-      </span>
-    </span>
-
-    <div class="emscripten">
-      <progress value="0" max="100" id="progress" hidden=1></progress>
+    <div id="gameFrame">
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
     </div>
 
-    <div class="emscripten_border">
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+    <div id="utilityBar">
+      <button id="btnDeleteData" onclick="clearData();">清除缓存</button>
+      <button id="btnDownloadSave" onclick="downloadSaves();">下载存档</button>
+    </div>
+
+    <div id="loadingScreen">
+      <div class="loading-card">
+        <img id="logo" src="icon.png" alt="SDLPAL">
+        <h1>仙剑奇侠传</h1>
+        <div class="subtitle">SDLPAL Web Edition</div>
+        <div class="spinner" id="spinner"></div>
+        <div id="status">正在初始化...</div>
+        <progress value="0" max="100" id="progress" hidden></progress>
+        <div id="tips">首次进入会自动下载游戏资源，加载完成后自动开始。</div>
+      </div>
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=f42d893"></script>
-    <script type="text/javascript" src="sdlpal.js"></script>
+    <script type="text/javascript" src="main.js?v=audiofix1"></script>
+    <script type="text/javascript" src="sdlpal.js?v=audiofix1"></script>
 
     <script type="text/javascript">
-        var userLang = navigator.language || navigator.userLanguage;
-        if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans')) {
-            document.getElementById('btnDeleteData').value = '删除游戏数据';
-            document.getElementById('btnDownloadSave').value = '下载存档';
-            document.getElementById('btnLaunch').value = '开始游戏';
-        } else if (userLang === 'zh-TW' || userLang.startsWith('zh-Hant')) {
-            document.getElementById('btnDeleteData').value = '刪除遊戲資料';
-            document.getElementById('btnDownloadSave').value = '下載記錄';
-            document.getElementById('btnLaunch').value = '開始遊戲';
-        }
+      var userLang = navigator.language || navigator.userLanguage;
+      if (userLang === 'zh-TW' || userLang.startsWith('zh-Hant')) {
+        document.getElementById('btnDeleteData').textContent = '清除快取';
+        document.getElementById('btnDownloadSave').textContent = '下載記錄';
+        document.getElementById('tips').textContent = '首次進入會自動下載遊戲資源，加載完成後自動開始。';
+      } else if (!(userLang === 'zh-CN' || userLang.startsWith('zh-Hans'))) {
+        document.getElementById('btnDeleteData').textContent = 'Clear cache';
+        document.getElementById('btnDownloadSave').textContent = 'Download saves';
+        document.getElementById('tips').textContent = 'Game files are downloaded automatically on first launch. The game starts when loading is complete.';
+      }
     </script>
-    <div id="tips" class="footer">注意事项</div>
   </body>
 </html>
