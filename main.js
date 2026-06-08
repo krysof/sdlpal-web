@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.1';
+var BUILD_VERSION = '20260609.2';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -60,6 +60,9 @@ var tipsElement;
 var loadingElement = document.getElementById('loadingScreen');
 var startButtonElement = document.getElementById('btnStartGame');
 var expMultiplierElement = document.getElementById('expMultiplier');
+var expMultiplierValueElement = document.getElementById('expMultiplierValue');
+var gameSpeedElement = document.getElementById('gameSpeed');
+var gameSpeedValueElement = document.getElementById('gameSpeedValue');
 var musicToggleElement = document.getElementById('btnToggleMusic');
 var soundToggleElement = document.getElementById('btnToggleSound');
 var installPromise = null;
@@ -86,25 +89,52 @@ var clearKeyStateFunc = null;
 function clampExpMultiplier(value) {
     var n = parseInt(value, 10);
     if (!isFinite(n) || n < 1) n = 1;
-    if (n > 20) n = 20;
+    if (n > 50) n = 50;
+    return n;
+}
+
+function clampGameSpeedMultiplier(value) {
+    var n = parseInt(value, 10);
+    if (!isFinite(n) || n < 1) n = 1;
+    if (n > 5) n = 5;
     return n;
 }
 
 var expMultiplier = clampExpMultiplier(localStorage.getItem('sdlpal_exp_multiplier') || '5');
+var gameSpeedMultiplier = clampGameSpeedMultiplier(localStorage.getItem('sdlpal_game_speed_multiplier') || '1');
 window.SDLPAL_expMultiplier = expMultiplier;
+window.SDLPAL_gameSpeedMultiplier = gameSpeedMultiplier;
+
+function updateMultiplierLabels() {
+    if (expMultiplierElement) expMultiplierElement.value = String(expMultiplier);
+    if (expMultiplierValueElement) expMultiplierValueElement.textContent = String(expMultiplier);
+    if (gameSpeedElement) gameSpeedElement.value = String(gameSpeedMultiplier);
+    if (gameSpeedValueElement) gameSpeedValueElement.textContent = String(gameSpeedMultiplier);
+}
 
 function setExpMultiplier(value) {
     expMultiplier = clampExpMultiplier(value);
     window.SDLPAL_expMultiplier = expMultiplier;
     localStorage.setItem('sdlpal_exp_multiplier', String(expMultiplier));
-    if (expMultiplierElement) expMultiplierElement.value = String(expMultiplier);
+    updateMultiplierLabels();
+}
+
+function setGameSpeedMultiplier(value) {
+    gameSpeedMultiplier = clampGameSpeedMultiplier(value);
+    window.SDLPAL_gameSpeedMultiplier = gameSpeedMultiplier;
+    localStorage.setItem('sdlpal_game_speed_multiplier', String(gameSpeedMultiplier));
+    updateMultiplierLabels();
 }
 
 if (expMultiplierElement) {
-    expMultiplierElement.value = String(expMultiplier);
     expMultiplierElement.addEventListener('change', function() { setExpMultiplier(expMultiplierElement.value); });
     expMultiplierElement.addEventListener('input', function() { setExpMultiplier(expMultiplierElement.value); });
 }
+if (gameSpeedElement) {
+    gameSpeedElement.addEventListener('change', function() { setGameSpeedMultiplier(gameSpeedElement.value); });
+    gameSpeedElement.addEventListener('input', function() { setGameSpeedMultiplier(gameSpeedElement.value); });
+}
+updateMultiplierLabels();
 
 (function installAudioContextUnlockHook() {
     NativeAudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -949,6 +979,7 @@ function playOpeningMenuMusic() {
 
 async function launch() {
     if (expMultiplierElement) setExpMultiplier(expMultiplierElement.value);
+    if (gameSpeedElement) setGameSpeedMultiplier(gameSpeedElement.value);
     var checkFile = false;
     try {
         if (FS.stat('/data/fbp.mkf').size > 0) checkFile = true;
