@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.37';
+var BUILD_VERSION = '20260608.38';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -231,7 +231,6 @@ function bgmUrlForTrack(track) {
 }
 
 function ensureHtmlBgmAudio() {
-    if (!isIOSAudioDevice()) return null;
     if (!htmlBgmAudio) {
         htmlBgmAudio = document.createElement('audio');
         htmlBgmAudio.setAttribute('playsinline', '');
@@ -272,7 +271,7 @@ function pauseHtmlBgmForBackground() {
 }
 
 function resumeHtmlBgmAfterForeground() {
-    if (soundMuted || musicMuted || !isIOSAudioDevice() || !htmlBgmAudio || !jsBgmTrack) return;
+    if (soundMuted || musicMuted || !htmlBgmAudio || !jsBgmTrack) return;
     try {
         htmlBgmAudio.muted = false;
         htmlBgmAudio.volume = 0.9;
@@ -357,9 +356,12 @@ async function playJsBgm(track, loop) {
 }
 
 window.SDLPAL_playBgm = function(track, loop) {
-    if (!isIOSAudioDevice()) return 0;
-    playJsBgm(track, loop);
-    return 1;
+    if (playHtmlBgm(track, loop)) return 1;
+    if (isIOSAudioDevice()) {
+        playJsBgm(track, loop);
+        return 1;
+    }
+    return 0;
 };
 
 function isIntroInputBlocked() {
