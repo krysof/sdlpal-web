@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.23';
+var BUILD_VERSION = '20260608.24';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -146,7 +146,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.23' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.24' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -640,15 +640,18 @@ async function launch() {
     unlockAudioForIOS();
     if (isIOSAudioDevice()) {
         /*
-         * Verification build: use the known-audible path. Start WASM/SDL
-         * immediately inside the Start tap and do not defer or mute BGM.
+         * iOS needs SDL's WebAudio graph to be created by the Start tap.
+         * Start WASM immediately, but let C render BGM at near-silent volume
+         * during the JS intro. After intro, restore normal BGM volume.
          */
+        setIntroPlaying(true);
         setVirtualControlsVisible(true);
         runGame();
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 300);
         await playIntroSequence();
         unlockAudioForIOS();
+        setIntroPlaying(false);
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 500);
         return;
