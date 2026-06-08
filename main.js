@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.30';
+var BUILD_VERSION = '20260608.31';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -69,6 +69,8 @@ var audioKeepAliveSource = null;
 var audioKeepAliveGain = null;
 var jsBgmGain = null;
 var jsBgmSource = null;
+var htmlBgmAudio = null;
+var htmlBgmUnlocked = false;
 var jsBgmTrack = 0;
 var jsBgmToken = 0;
 var jsBgmBuffers = {};
@@ -161,11 +163,83 @@ function resumeAudioContexts() {
 function unlockAudioForIOS() {
     audioUnlocked = true;
     ensureSharedAudioContext();
+    unlockHtmlBgmAudio();
     resumeAudioContexts();
+}
+
+
+function bgmUrlForTrack(track) {
+    return 'data/bgm/' + String(track).padStart(3, '0') + '.m4a?v=' + encodeURIComponent(BUILD_VERSION);
+}
+
+function ensureHtmlBgmAudio() {
+    if (!isIOSAudioDevice()) return null;
+    if (!htmlBgmAudio) {
+        htmlBgmAudio = document.createElement('audio');
+        htmlBgmAudio.setAttribute('playsinline', '');
+        htmlBgmAudio.setAttribute('webkit-playsinline', '');
+        htmlBgmAudio.preload = 'auto';
+        htmlBgmAudio.loop = true;
+        htmlBgmAudio.volume = 0;
+        htmlBgmAudio.muted = false;
+        htmlBgmAudio.src = bgmUrlForTrack(4);
+        document.body.appendChild(htmlBgmAudio);
+    }
+    return htmlBgmAudio;
+}
+
+function unlockHtmlBgmAudio() {
+    var a = ensureHtmlBgmAudio();
+    if (!a || htmlBgmUnlocked) return;
+    try {
+        a.volume = 0;
+        a.loop = true;
+        var p = a.play();
+        if (p && p.then) {
+            p.then(function(){ htmlBgmUnlocked = true; Module.print('[htmlbgm] unlocked'); })
+             .catch(function(e){ Module.printErr('[htmlbgm] unlock failed: ' + (e && e.message ? e.message : e)); });
+        } else {
+            htmlBgmUnlocked = true;
+        }
+    } catch (e) {
+        Module.printErr('[htmlbgm] unlock exception: ' + (e && e.message ? e.message : e));
+    }
+}
+
+function playHtmlBgm(track, loop) {
+    var a = ensureHtmlBgmAudio();
+    if (!a) return false;
+    var n = Number(track) || 0;
+    jsBgmTrack = n;
+    if (n <= 0) {
+        try { a.pause(); } catch (e) {}
+        return true;
+    }
+    var url = bgmUrlForTrack(n);
+    try {
+        a.loop = !!loop;
+        a.muted = false;
+        a.volume = 0.9;
+        if (a.src.indexOf('data/bgm/' + String(n).padStart(3, '0') + '.m4a') < 0) {
+            a.src = url;
+            a.load();
+        }
+        try { a.currentTime = 0; } catch (e) {}
+        var p = a.play();
+        if (p && p.catch) p.catch(function(e) {
+            Module.printErr('[htmlbgm] play failed ' + n + ': ' + (e && e.message ? e.message : e));
+        });
+        Module.print('[htmlbgm] play ' + n + ' loop=' + (!!loop));
+        return true;
+    } catch (e) {
+        Module.printErr('[htmlbgm] exception ' + n + ': ' + (e && e.message ? e.message : e));
+        return false;
+    }
 }
 
 async function playJsBgm(track, loop) {
     if (!isIOSAudioDevice()) return;
+    if (playHtmlBgm(track, loop)) return;
     var n = Number(track) || 0;
     var token = ++jsBgmToken;
     if (jsBgmSource) {
@@ -181,7 +255,7 @@ async function playJsBgm(track, loop) {
     var key = String(n).padStart(3, '0');
     try {
         if (!jsBgmBuffers[key]) {
-            var resp = await fetch('data/bgm/' + key + '.m4a?v=' + encodeURIComponent(BUILD_VERSION));
+            var resp = await fetch(bgmUrlForTrack(n));
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             var arr = await resp.arrayBuffer();
             jsBgmBuffers[key] = await ctx.decodeAudioData(arr.slice(0));
@@ -267,7 +341,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.30' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.31' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
