@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.20';
+var BUILD_VERSION = '20260608.21';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -146,7 +146,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.20' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.21' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -511,6 +511,7 @@ async function playIntroSequence() {
 
 var virtualControlsInitialized = false;
 var isBattleActiveFunc = null;
+var setIntroPlayingFunc = null;
 var battlePollTimer = null;
 
 function keyInfo(key) {
@@ -600,6 +601,17 @@ function updateBattleControls() {
     controls.classList.toggle('battle-active', active);
 }
 
+function setIntroPlaying(playing) {
+    try {
+        if (!setIntroPlayingFunc) {
+            setIntroPlayingFunc = Module.cwrap('EMSCRIPTEN_set_intro_playing', null, ['number']);
+        }
+        setIntroPlayingFunc(playing ? 1 : 0);
+    } catch (e) {
+        Module.printErr('setIntroPlaying failed: ' + (e && e.message ? e.message : e));
+    }
+}
+
 async function launch() {
     var checkFile = false;
     try {
@@ -626,6 +638,24 @@ async function launch() {
     if (deleteButton) deleteButton.style.display = 'none';
     hideLoadingScreen();
     unlockAudioForIOS();
+    if (isIOSAudioDevice()) {
+        /*
+         * iOS needs SDL's WebAudio device to be created by the Start tap.
+         * Start the game immediately, but ask C audio to defer BGM until the
+         * JS intro finishes. This preserves both intro video and MIDI sound.
+         */
+        setIntroPlaying(true);
+        setVirtualControlsVisible(true);
+        runGame();
+        window.setTimeout(resumeAudioContexts, 0);
+        window.setTimeout(resumeAudioContexts, 300);
+        await playIntroSequence();
+        unlockAudioForIOS();
+        setIntroPlaying(false);
+        window.setTimeout(resumeAudioContexts, 0);
+        window.setTimeout(resumeAudioContexts, 500);
+        return;
+    }
     await playIntroSequence();
     unlockAudioForIOS();
     setVirtualControlsVisible(true);
