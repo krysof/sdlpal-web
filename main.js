@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.25';
+var BUILD_VERSION = '20260608.26';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -146,7 +146,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.25' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.26' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -665,8 +665,6 @@ async function launch() {
         await playIntroSequence();
         unlockAudioForIOS();
         setIntroPlaying(false);
-        playOpeningMenuMusic();
-        window.setTimeout(playOpeningMenuMusic, 250);
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 500);
         return;
