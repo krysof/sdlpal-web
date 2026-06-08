@@ -299,7 +299,21 @@ async function runGame() {
     if (gameStarted) return;
     gameStarted = true;
     var mainFunc = Module.cwrap('EMSCRIPTEN_main', 'number', ['number', 'number'], {async:true});
-    mainFunc(0, 0);
+    try {
+        await mainFunc(0, 0);
+    } catch (e) {
+        /*
+         * Asyncify uses an internal "unwind" path when C code waits for
+         * browser-side async work, e.g. the MP4 <video> intro.  Some browsers
+         * may surface that path through global error/rejection handlers even
+         * though it is not a real game error.
+         */
+        if (e === 'unwind' || (e && e.message === 'unwind')) return;
+        Module.printErr(e && e.stack ? e.stack : e);
+        Module.setStatus('Exception thrown, see JavaScript console');
+        spinnerElement.style.display = 'none';
+        throw e;
+    }
 }
 
 async function launch() {
@@ -329,10 +343,23 @@ async function launch() {
 }
 
 Module.setStatus(strInit);
-window.onerror = function(event) {
+window.onerror = function(message, source, lineno, colno, error) {
+    if (message === 'unwind' || error === 'unwind' || (error && error.message === 'unwind')) {
+        return true;
+    }
     Module.setStatus('Exception thrown, see JavaScript console');
     spinnerElement.style.display = 'none';
     Module.setStatus = function(text) {
         if (text) Module.printErr('[post-exception status] ' + text);
     };
+};
+window.onunhandledrejection = function(event) {
+    var reason = event && event.reason;
+    if (reason === 'unwind' || (reason && reason.message === 'unwind')) {
+        event.preventDefault();
+        return;
+    }
+    Module.printErr(reason && reason.stack ? reason.stack : reason);
+    Module.setStatus('Exception thrown, see JavaScript console');
+    spinnerElement.style.display = 'none';
 };
