@@ -12,6 +12,8 @@ var strBundledDownloading = 'Downloading bundled game data';
 var strBundledCached = 'Bundled game data is ready.';
 var strBundledFailed = 'Failed to install bundled game data. See JavaScript console.';
 var strStarting = 'Starting game...';
+var strReady = 'Ready.';
+var strStartPrompt = 'Click Start Game to begin.';
 
 var userLang = navigator.language || navigator.userLanguage;
 if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
@@ -29,6 +31,8 @@ if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
     strBundledCached = '内置游戏数据已就绪。';
     strBundledFailed = '安装内置游戏数据失败，请查看浏览器控制台。';
     strStarting = '正在进入游戏...';
+    strReady = '准备完成。';
+    strStartPrompt = '点击“开始游戏”进入。';
 } else if (userLang === 'zh-TW' || userLang.startsWith('zh-Hant') ) {
     strSyncingFs = '正在同步檔案系統...';
     strDone = '完成。';
@@ -44,6 +48,8 @@ if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
     strBundledCached = '內建遊戲資料已就緒。';
     strBundledFailed = '安裝內建遊戲資料失敗，請查看瀏覽器主控台。';
     strStarting = '正在進入遊戲...';
+    strReady = '準備完成。';
+    strStartPrompt = '點擊「開始遊戲」進入。';
 }
 
 var statusElement = document.getElementById('status');
@@ -51,6 +57,7 @@ var progressElement = document.getElementById('progress');
 var spinnerElement = document.getElementById('spinner');
 var tipsElement;
 var loadingElement = document.getElementById('loadingScreen');
+var startButtonElement = document.getElementById('btnStartGame');
 var installPromise = null;
 var gameStarted = false;
 
@@ -65,7 +72,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=audiofix1' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage1' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -113,7 +120,7 @@ function onRuntimeInitialized() {
     FS.syncfs(true, function (err) {
         if (err) Module.printErr(err);
         installBundledDataIfNeeded(false).then(function() {
-            return launch();
+            showStartButton();
         }).catch(function(e) {
             Module.printErr(e && e.stack ? e.stack : e);
             Module.setStatus(strBundledFailed);
@@ -124,6 +131,18 @@ function onRuntimeInitialized() {
 
 function hideLoadingScreen() {
     if (loadingElement) loadingElement.classList.add('hidden');
+}
+
+function showStartButton() {
+    Module.setStatus(strReady);
+    spinnerElement.style.display = 'none';
+    progressElement.hidden = true;
+    if (startButtonElement) {
+        startButtonElement.style.display = 'inline-block';
+        startButtonElement.disabled = false;
+        startButtonElement.focus();
+    }
+    if (tipsElement) tipsElement.textContent = strStartPrompt;
 }
 
 function mkdirp(path) {
@@ -350,6 +369,7 @@ async function launch() {
     }
     Module.setStatus(strStarting);
     spinnerElement.style.display = 'none';
+    if (startButtonElement) startButtonElement.style.display = 'none';
     var deleteButton = document.getElementById('btnDeleteData');
     if (deleteButton) deleteButton.style.display = 'none';
     hideLoadingScreen();

@@ -148,6 +148,22 @@
         backdrop-filter: blur(8px);
       }
       #utilityBar button:hover { background: rgba(142,29,34,.72); }
+      #btnStartGame {
+        display: none;
+        margin-top: 22px;
+        border: 1px solid rgba(246,216,120,.72);
+        border-radius: 999px;
+        padding: 12px 42px;
+        background: linear-gradient(180deg, #b9252d, #681116);
+        color: #fff0c8;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: .12em;
+        box-shadow: 0 12px 32px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.22);
+        cursor: pointer;
+      }
+      #btnStartGame:hover { filter: brightness(1.12); }
+      #btnStartGame:active { transform: translateY(1px); }
     </style>
   </head>
   <body>
@@ -168,24 +184,27 @@
         <div class="spinner" id="spinner"></div>
         <div id="status">正在初始化...</div>
         <progress value="0" max="100" id="progress" hidden></progress>
-        <div id="tips">首次进入会自动下载游戏资源，加载完成后自动开始。</div>
+        <button id="btnStartGame" onclick="launch();">开始游戏</button>
+        <div id="tips">首次进入会自动下载游戏资源。准备完成后点击“开始游戏”，片头可按任意键跳过。</div>
       </div>
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=audiofix1"></script>
-    <script type="text/javascript" src="sdlpal.js?v=audiofix1"></script>
+    <script type="text/javascript" src="main.js?v=startpage1"></script>
+    <script type="text/javascript" src="sdlpal.js?v=startpage1"></script>
 
     <script type="text/javascript">
       var userLang = navigator.language || navigator.userLanguage;
       if (userLang === 'zh-TW' || userLang.startsWith('zh-Hant')) {
         document.getElementById('btnDeleteData').textContent = '清除快取';
         document.getElementById('btnDownloadSave').textContent = '下載記錄';
-        document.getElementById('tips').textContent = '首次進入會自動下載遊戲資源，加載完成後自動開始。';
+        document.getElementById('btnStartGame').textContent = '開始遊戲';
+        document.getElementById('tips').textContent = '首次進入會自動下載遊戲資源。準備完成後點擊「開始遊戲」，片頭可按任意鍵跳過。';
       } else if (!(userLang === 'zh-CN' || userLang.startsWith('zh-Hans'))) {
         document.getElementById('btnDeleteData').textContent = 'Clear cache';
         document.getElementById('btnDownloadSave').textContent = 'Download saves';
-        document.getElementById('tips').textContent = 'Game files are downloaded automatically on first launch. The game starts when loading is complete.';
+        document.getElementById('btnStartGame').textContent = 'Start Game';
+        document.getElementById('tips').textContent = 'Game files download automatically on first launch. Click Start Game when ready. Press any key to skip intro videos.';
       }
     </script>
   </body>
