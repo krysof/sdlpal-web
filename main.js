@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.29';
+var BUILD_VERSION = '20260608.30';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -67,6 +67,11 @@ var NativeAudioContextCtor = null;
 var sharedAudioContext = null;
 var audioKeepAliveSource = null;
 var audioKeepAliveGain = null;
+var jsBgmGain = null;
+var jsBgmSource = null;
+var jsBgmTrack = 0;
+var jsBgmToken = 0;
+var jsBgmBuffers = {};
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
 
@@ -159,6 +164,50 @@ function unlockAudioForIOS() {
     resumeAudioContexts();
 }
 
+async function playJsBgm(track, loop) {
+    if (!isIOSAudioDevice()) return;
+    var n = Number(track) || 0;
+    var token = ++jsBgmToken;
+    if (jsBgmSource) {
+        try { jsBgmSource.stop(0); } catch (e) {}
+        try { jsBgmSource.disconnect(); } catch (e) {}
+        jsBgmSource = null;
+    }
+    jsBgmTrack = n;
+    if (n <= 0) return;
+    var ctx = ensureSharedAudioContext();
+    if (!ctx) return;
+    try { if (ctx.state === 'suspended') await ctx.resume(); } catch (e) {}
+    var key = String(n).padStart(3, '0');
+    try {
+        if (!jsBgmBuffers[key]) {
+            var resp = await fetch('data/bgm/' + key + '.m4a?v=' + encodeURIComponent(BUILD_VERSION));
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            var arr = await resp.arrayBuffer();
+            jsBgmBuffers[key] = await ctx.decodeAudioData(arr.slice(0));
+        }
+        if (token !== jsBgmToken || jsBgmTrack !== n) return;
+        if (!jsBgmGain) {
+            jsBgmGain = ctx.createGain();
+            jsBgmGain.gain.value = 0.85;
+            jsBgmGain.connect(ctx.destination);
+        }
+        var src = ctx.createBufferSource();
+        src.buffer = jsBgmBuffers[key];
+        src.loop = !!loop;
+        src.connect(jsBgmGain);
+        src.start(0);
+        jsBgmSource = src;
+        Module.print('[jsbgm] play ' + key + ' loop=' + (!!loop));
+    } catch (e) {
+        Module.printErr('[jsbgm] failed ' + key + ': ' + (e && e.message ? e.message : e));
+    }
+}
+
+window.SDLPAL_playBgm = function(track, loop) {
+    playJsBgm(track, loop);
+};
+
 function isIntroInputBlocked() {
     return Date.now() < introInputBlockUntil;
 }
@@ -218,7 +267,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.29' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.30' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
