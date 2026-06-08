@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.33';
+var BUILD_VERSION = '20260608.34';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -374,7 +374,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.33' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.34' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -741,7 +741,6 @@ async function playIntroSequence() {
      * Play MP4 intros before entering wasm.  This avoids blocking C with
      * Asyncify while SDL browser callbacks are active.
      */
-    await playIntroVideo('data/1.mp4');
     await playIntroVideo('data/2.mp4');
 }
 
