@@ -67,10 +67,6 @@ var audioContexts = [];
     var NativeAudioContext = window.AudioContext || window.webkitAudioContext;
     if (!NativeAudioContext) return;
     function WrappedAudioContext() {
-        if (isIOSAudioDevice() && audioContexts.length > 0 &&
-            audioContexts[0] && audioContexts[0].state !== 'closed') {
-            return audioContexts[0];
-        }
         var ctx = new (Function.prototype.bind.apply(NativeAudioContext, [null].concat(Array.prototype.slice.call(arguments))))();
         audioContexts.push(ctx);
         if (audioUnlocked) window.setTimeout(resumeAudioContexts, 0);
@@ -113,17 +109,6 @@ function resumeAudioContexts() {
 
 function unlockAudioForIOS() {
     audioUnlocked = true;
-    var Ctor = window.AudioContext || window.webkitAudioContext;
-    if (Ctor && audioContexts.length === 0) {
-        try {
-            var ctx = new Ctor();
-            var buffer = ctx.createBuffer(1, 1, 22050);
-            var source = ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(ctx.destination);
-            source.start(0);
-        } catch (e) {}
-    }
     resumeAudioContexts();
 }
 
@@ -160,7 +145,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage17' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage18' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
