@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.19';
+var BUILD_VERSION = '20260608.20';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -146,7 +146,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.19' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.20' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -626,20 +626,6 @@ async function launch() {
     if (deleteButton) deleteButton.style.display = 'none';
     hideLoadingScreen();
     unlockAudioForIOS();
-    if (isIOSAudioDevice()) {
-        /*
-         * iOS Safari is strict: the SDL WebAudio graph must be created in the
-         * original tap/click gesture.  Playing the MP4 intro before/over the
-         * game can steal or suspend the audio session on iPhone, so iOS skips
-         * the JS intro and enters the game immediately.
-         */
-        setVirtualControlsVisible(true);
-        runGame();
-        window.setTimeout(resumeAudioContexts, 0);
-        window.setTimeout(resumeAudioContexts, 300);
-        window.setTimeout(resumeAudioContexts, 1000);
-        return;
-    }
     await playIntroSequence();
     unlockAudioForIOS();
     setVirtualControlsVisible(true);
