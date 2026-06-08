@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.21';
+var BUILD_VERSION = '20260608.22';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -146,7 +146,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.21' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.22' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -640,18 +640,15 @@ async function launch() {
     unlockAudioForIOS();
     if (isIOSAudioDevice()) {
         /*
-         * iOS needs SDL's WebAudio device to be created by the Start tap.
-         * Start the game immediately, but ask C audio to defer BGM until the
-         * JS intro finishes. This preserves both intro video and MIDI sound.
+         * Verification build: use the known-audible path. Start WASM/SDL
+         * immediately inside the Start tap and do not defer or mute BGM.
          */
-        setIntroPlaying(true);
         setVirtualControlsVisible(true);
         runGame();
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 300);
         await playIntroSequence();
         unlockAudioForIOS();
-        setIntroPlaying(false);
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 500);
         return;
