@@ -94,6 +94,19 @@ function resumeAudioContexts() {
         var ctx = audioContexts[i];
         try {
             if (ctx && ctx.state === 'suspended') ctx.resume();
+            /*
+             * After iOS backgrounds a page, a resume() alone sometimes leaves
+             * the output graph idle until a node is started again.  Start a
+             * one-sample silent source to kick the audio session without
+             * adding audible sound.
+             */
+            if (ctx && ctx.state === 'running' && isIOSAudioDevice()) {
+                var buffer = ctx.createBuffer(1, 1, 22050);
+                var source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.start(0);
+            }
         } catch (e) {}
     }
 }
@@ -119,6 +132,23 @@ function unlockAudioForIOS() {
     window.addEventListener(type, unlockAudioForIOS, {capture: true, passive: true});
 });
 
+['focus', 'pageshow'].forEach(function(type) {
+    window.addEventListener(type, function() {
+        if (!audioUnlocked) return;
+        resumeAudioContexts();
+        window.setTimeout(resumeAudioContexts, 250);
+        window.setTimeout(resumeAudioContexts, 1000);
+    });
+});
+
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && audioUnlocked) {
+        resumeAudioContexts();
+        window.setTimeout(resumeAudioContexts, 250);
+        window.setTimeout(resumeAudioContexts, 1000);
+    }
+});
+
 window.addEventListener('load', function () {
     tipsElement = document.getElementById('tips');
     if (tipsElement) tipsElement.textContent = strTips;
@@ -130,7 +160,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage16' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage17' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
