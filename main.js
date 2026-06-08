@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.35';
+var BUILD_VERSION = '20260608.36';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -18,22 +18,22 @@ var strStartPrompt = 'Click Start Game to begin.';
 
 var userLang = navigator.language || navigator.userLanguage;
 if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
-    strSyncingFs = '正在同步文件系统...';
+    strSyncingFs = '正在同步檔案系統...';
     strDone = '完成。';
-    strDeleting = '正在删除...';
-    strNoSave = '无法找到可下载的游戏存档！';
-    strNoData = '错误：游戏数据未加载。';
+    strDeleting = '正在刪除...';
+    strNoSave = '無法找到可下載的遊戲記錄！';
+    strNoData = '錯誤：遊戲資料尚未載入。';
     strInit = '正在初始化...';
-    strLoading = '正在加载';
-    strDelConfirm = '此操作将删除浏览器缓存中的游戏数据和存档。请输入 "YES" 继续：';
-    strTips = '内置数据模式：首次打开会从 ./data/ 自动下载游戏文件到浏览器缓存。显示“完成”前请不要关闭页面。';
-    strBundledChecking = '正在检查内置游戏数据...';
-    strBundledDownloading = '正在下载内置游戏数据';
-    strBundledCached = '内置游戏数据已就绪。';
-    strBundledFailed = '安装内置游戏数据失败，请查看浏览器控制台。';
-    strStarting = '正在进入游戏...';
-    strReady = '准备完成。';
-    strStartPrompt = '点击“开始游戏”进入。';
+    strLoading = '正在加載';
+    strDelConfirm = '此操作將刪除瀏覽器快取中的遊戲資料和記錄。請輸入 "YES" 繼續：';
+    strTips = '內建資料模式：首次開啟會從 ./data/ 自動下載遊戲檔案到瀏覽器快取。顯示「完成」前請勿關閉頁面。';
+    strBundledChecking = '正在檢查內建遊戲資料...';
+    strBundledDownloading = '正在下載內建遊戲資料';
+    strBundledCached = '內建遊戲資料已就緒。';
+    strBundledFailed = '安裝內建遊戲資料失敗，請查看瀏覽器主控台。';
+    strStarting = '正在進入遊戲...';
+    strReady = '準備完成。';
+    strStartPrompt = '點擊「開始遊戲」進入。';
 } else if (userLang === 'zh-TW' || userLang.startsWith('zh-Hant') ) {
     strSyncingFs = '正在同步檔案系統...';
     strDone = '完成。';
@@ -59,6 +59,8 @@ var spinnerElement = document.getElementById('spinner');
 var tipsElement;
 var loadingElement = document.getElementById('loadingScreen');
 var startButtonElement = document.getElementById('btnStartGame');
+var musicToggleElement = document.getElementById('btnToggleMusic');
+var soundToggleElement = document.getElementById('btnToggleSound');
 var installPromise = null;
 var gameStarted = false;
 var audioUnlocked = false;
@@ -74,6 +76,8 @@ var htmlBgmUnlocked = false;
 var jsBgmTrack = 0;
 var jsBgmToken = 0;
 var jsBgmBuffers = {};
+var musicMuted = localStorage.getItem('sdlpal_music_muted') === '1';
+var soundMuted = localStorage.getItem('sdlpal_sound_muted') === '1';
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
 
@@ -140,7 +144,7 @@ function startAudioKeepAlive(ctx) {
 }
 
 function kickAudioContext(ctx) {
-    if (!ctx) return;
+    if (!ctx || soundMuted) return;
     try {
         if (ctx.state === 'suspended') ctx.resume();
         startAudioKeepAlive(ctx);
@@ -155,6 +159,12 @@ function kickAudioContext(ctx) {
 function resumeAudioContexts() {
     audioUnlocked = true;
     ensureSharedAudioContext();
+    if (soundMuted) {
+        for (var i = 0; i < audioContexts.length; i++) {
+            try { audioContexts[i] && audioContexts[i].suspend && audioContexts[i].suspend(); } catch (e) {}
+        }
+        return;
+    }
     for (var i = 0; i < audioContexts.length; i++) {
         kickAudioContext(audioContexts[i]);
     }
@@ -167,6 +177,47 @@ function unlockAudioForIOS() {
     resumeAudioContexts();
 }
 
+
+function updateAudioToggleButtons() {
+    if (musicToggleElement) {
+        musicToggleElement.classList.toggle('off', musicMuted);
+        musicToggleElement.textContent = musicMuted ? '🚫🎵' : '🎵';
+        musicToggleElement.title = musicMuted ? '啟用音樂' : '禁用音樂';
+        musicToggleElement.setAttribute('aria-label', musicToggleElement.title);
+    }
+    if (soundToggleElement) {
+        soundToggleElement.classList.toggle('off', soundMuted);
+        soundToggleElement.textContent = soundMuted ? '🚫🔊' : '🔊';
+        soundToggleElement.title = soundMuted ? '啟用音效' : '禁用音效';
+        soundToggleElement.setAttribute('aria-label', soundToggleElement.title);
+    }
+}
+
+function toggleMusicMute() {
+    musicMuted = !musicMuted;
+    localStorage.setItem('sdlpal_music_muted', musicMuted ? '1' : '0');
+    updateAudioToggleButtons();
+    if (musicMuted) {
+        pauseHtmlBgmForBackground();
+    } else {
+        resumeHtmlBgmAfterForeground();
+    }
+}
+
+function toggleSoundMute() {
+    soundMuted = !soundMuted;
+    localStorage.setItem('sdlpal_sound_muted', soundMuted ? '1' : '0');
+    updateAudioToggleButtons();
+    if (soundMuted) {
+        for (var i = 0; i < audioContexts.length; i++) {
+            try { audioContexts[i] && audioContexts[i].suspend && audioContexts[i].suspend(); } catch (e) {}
+        }
+    } else {
+        resumeAudioContexts();
+    }
+}
+
+updateAudioToggleButtons();
 
 function bgmUrlForTrack(track) {
     return 'data/bgm/' + String(track).padStart(3, '0') + '.m4a?v=' + encodeURIComponent(BUILD_VERSION);
@@ -214,7 +265,7 @@ function pauseHtmlBgmForBackground() {
 }
 
 function resumeHtmlBgmAfterForeground() {
-    if (!isIOSAudioDevice() || !htmlBgmAudio || !jsBgmTrack) return;
+    if (musicMuted || !isIOSAudioDevice() || !htmlBgmAudio || !jsBgmTrack) return;
     try {
         htmlBgmAudio.muted = false;
         htmlBgmAudio.volume = 0.9;
@@ -230,7 +281,7 @@ function playHtmlBgm(track, loop) {
     if (!a) return false;
     var n = Number(track) || 0;
     jsBgmTrack = n;
-    if (n <= 0) {
+    if (n <= 0 || musicMuted) {
         try { a.pause(); } catch (e) {}
         return true;
     }
@@ -374,7 +425,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.35' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.36' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
