@@ -72,7 +72,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage9' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=startpage12' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -434,6 +434,97 @@ async function playIntroSequence() {
     await playIntroVideo('data/2.mp4');
 }
 
+
+var virtualControlsInitialized = false;
+var isBattleActiveFunc = null;
+var battlePollTimer = null;
+
+function keyInfo(key) {
+    var table = {
+        'ArrowUp': [38, 'ArrowUp'], 'ArrowDown': [40, 'ArrowDown'],
+        'ArrowLeft': [37, 'ArrowLeft'], 'ArrowRight': [39, 'ArrowRight'],
+        'Enter': [13, 'Enter'], ' ': [32, 'Space'], 'Escape': [27, 'Escape'],
+        'r': [82, 'KeyR'], 'a': [65, 'KeyA'], 'd': [68, 'KeyD'],
+        'e': [69, 'KeyE'], 'w': [87, 'KeyW'], 'q': [81, 'KeyQ'],
+        'f': [70, 'KeyF'], 's': [83, 'KeyS']
+    };
+    var v = table[key] || [0, ''];
+    return {keyCode: v[0], which: v[0], code: v[1]};
+}
+
+function dispatchVirtualKey(key, type) {
+    var info = keyInfo(key);
+    var ev = new KeyboardEvent(type, {
+        key: key,
+        code: info.code,
+        keyCode: info.keyCode,
+        which: info.which,
+        bubbles: true,
+        cancelable: true
+    });
+    try { Object.defineProperty(ev, 'keyCode', {get: function(){ return info.keyCode; }}); } catch (e) {}
+    try { Object.defineProperty(ev, 'which', {get: function(){ return info.which; }}); } catch (e) {}
+    var canvas = Module.canvas || document.getElementById('canvas');
+    if (canvas) canvas.dispatchEvent(ev);
+    document.dispatchEvent(ev);
+    window.dispatchEvent(ev);
+}
+
+function initVirtualControls() {
+    if (virtualControlsInitialized) return;
+    virtualControlsInitialized = true;
+    var controls = document.getElementById('mobileControls');
+    if (!controls) return;
+
+    controls.querySelectorAll('[data-key]').forEach(function(btn) {
+        var key = btn.getAttribute('data-key');
+        var pressed = false;
+        function down(e) {
+            e.preventDefault();
+            if (pressed) return;
+            pressed = true;
+            btn.classList.add('pressed');
+            dispatchVirtualKey(key, 'keydown');
+        }
+        function up(e) {
+            if (e) e.preventDefault();
+            if (!pressed) return;
+            pressed = false;
+            btn.classList.remove('pressed');
+            dispatchVirtualKey(key, 'keyup');
+        }
+        btn.addEventListener('pointerdown', down);
+        btn.addEventListener('pointerup', up);
+        btn.addEventListener('pointercancel', up);
+        btn.addEventListener('pointerleave', up);
+        btn.addEventListener('touchstart', function(e){ e.preventDefault(); }, {passive:false});
+        btn.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+    });
+
+    try {
+        isBattleActiveFunc = Module.cwrap('EMSCRIPTEN_is_battle_active', 'number', []);
+    } catch (e) {
+        isBattleActiveFunc = null;
+    }
+    battlePollTimer = window.setInterval(updateBattleControls, 400);
+    updateBattleControls();
+}
+
+function setVirtualControlsVisible(visible) {
+    var controls = document.getElementById('mobileControls');
+    if (!controls) return;
+    initVirtualControls();
+    controls.classList.toggle('active', !!visible);
+}
+
+function updateBattleControls() {
+    var controls = document.getElementById('mobileControls');
+    if (!controls || !isBattleActiveFunc || !gameStarted) return;
+    var active = false;
+    try { active = !!isBattleActiveFunc(); } catch (e) { active = false; }
+    controls.classList.toggle('battle-active', active);
+}
+
 async function launch() {
     var checkFile = false;
     try {
@@ -460,6 +551,7 @@ async function launch() {
     if (deleteButton) deleteButton.style.display = 'none';
     hideLoadingScreen();
     await playIntroSequence();
+    setVirtualControlsVisible(true);
     runGame();
 }
 
