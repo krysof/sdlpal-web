@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.28';
+var BUILD_VERSION = '20260608.29';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -65,6 +65,8 @@ var audioUnlocked = false;
 var audioContexts = [];
 var NativeAudioContextCtor = null;
 var sharedAudioContext = null;
+var audioKeepAliveSource = null;
+var audioKeepAliveGain = null;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
 
@@ -108,10 +110,33 @@ function ensureSharedAudioContext() {
     return sharedAudioContext;
 }
 
+function startAudioKeepAlive(ctx) {
+    if (!ctx || audioKeepAliveSource) return;
+    try {
+        /*
+         * iOS sometimes unlocks only the nodes that were started inside the
+         * tap gesture. Keep one almost-silent oscillator alive from the Start
+         * tap so SDL's ScriptProcessor stays on an active audio session even
+         * after the MP4 <video> finishes.
+         */
+        audioKeepAliveGain = ctx.createGain();
+        audioKeepAliveGain.gain.value = 0.00001;
+        audioKeepAliveSource = ctx.createOscillator();
+        audioKeepAliveSource.frequency.value = 20;
+        audioKeepAliveSource.connect(audioKeepAliveGain);
+        audioKeepAliveGain.connect(ctx.destination);
+        audioKeepAliveSource.start(0);
+    } catch (e) {
+        audioKeepAliveSource = null;
+        audioKeepAliveGain = null;
+    }
+}
+
 function kickAudioContext(ctx) {
     if (!ctx) return;
     try {
         if (ctx.state === 'suspended') ctx.resume();
+        startAudioKeepAlive(ctx);
         var buffer = ctx.createBuffer(1, 1, 22050);
         var source = ctx.createBufferSource();
         source.buffer = buffer;
@@ -193,7 +218,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.28' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.29' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -724,7 +749,9 @@ async function launch() {
         window.setTimeout(clearGameInput, 120);
         window.setTimeout(clearGameInput, 450);
         window.setTimeout(resumeAudioContexts, 0);
-        window.setTimeout(resumeAudioContexts, 500);
+        window.setTimeout(resumeAudioContexts, 300);
+        window.setTimeout(resumeAudioContexts, 1000);
+        window.setTimeout(resumeAudioContexts, 2000);
         return;
     }
     await playIntroSequence();
