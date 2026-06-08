@@ -1,9 +1,17 @@
 {
-  "version": "pal95-big5-mp4-51f885c-20260608",
-  "generated_at": "2026-06-08",
-  "total_size": 56410017,
-  "file_count": 110,
+  "version": "pal95-big5-web-startpage3-hints-music-20260608",
+  "total_size": 88737639,
   "files": [
+    {
+      "path": "._generaluser-gs.sf2",
+      "size": 4096,
+      "sha256": "23a44fcd0a60e717bda74fd2a150e592fb1d4efe9493a20d2d0424786c6365d6"
+    },
+    {
+      "path": "._sdlpal.cfg",
+      "size": 4096,
+      "sha256": "23a44fcd0a60e717bda74fd2a150e592fb1d4efe9493a20d2d0424786c6365d6"
+    },
     {
       "path": "0.rpg",
       "size": 176432,
@@ -68,6 +76,11 @@
       "path": "fire.mkf",
       "size": 764381,
       "sha256": "5a23940d3daab5bfa95efd3b92b4d1ae481fc4f7ad38374ec66b16c7e7d5d9cf"
+    },
+    {
+      "path": "generaluser-gs.sf2",
+      "size": 32319396,
+      "sha256": "9575028c7a1f589f5770fccc8cff2734566af40cd26ed836944e9a5152688cfe"
     },
     {
       "path": "gop.mkf",
@@ -536,8 +549,8 @@
     },
     {
       "path": "sdlpal.cfg",
-      "size": 147,
-      "sha256": "4248ad39c6d81f6a8c7b9df0dedddf5c588468910db033fed387c5b6427bbb05"
+      "size": 181,
+      "sha256": "730b312d99d3f6ac31b77fe5c1ecf1379c63d96fe762d764bb5ca69bd8161751"
     },
     {
       "path": "sounds.mkf",
