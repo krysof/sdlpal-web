@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.24';
+var BUILD_VERSION = '20260608.25';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -146,7 +146,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.24' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.25' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -512,6 +512,7 @@ async function playIntroSequence() {
 var virtualControlsInitialized = false;
 var isBattleActiveFunc = null;
 var setIntroPlayingFunc = null;
+var playOpeningMenuMusicFunc = null;
 var battlePollTimer = null;
 
 function keyInfo(key) {
@@ -612,6 +613,18 @@ function setIntroPlaying(playing) {
     }
 }
 
+function playOpeningMenuMusic() {
+    try {
+        if (!playOpeningMenuMusicFunc) {
+            playOpeningMenuMusicFunc = Module.cwrap('EMSCRIPTEN_play_opening_menu_music', null, []);
+        }
+        playOpeningMenuMusicFunc();
+        Module.print('[webaudio] opening menu MIDI requested after intro');
+    } catch (e) {
+        Module.printErr('playOpeningMenuMusic failed: ' + (e && e.message ? e.message : e));
+    }
+}
+
 async function launch() {
     var checkFile = false;
     try {
@@ -652,6 +665,8 @@ async function launch() {
         await playIntroSequence();
         unlockAudioForIOS();
         setIntroPlaying(false);
+        playOpeningMenuMusic();
+        window.setTimeout(playOpeningMenuMusic, 250);
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 500);
         return;
