@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.32';
+var BUILD_VERSION = '20260608.33';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -206,6 +206,25 @@ function unlockHtmlBgmAudio() {
     }
 }
 
+
+function pauseHtmlBgmForBackground() {
+    if (htmlBgmAudio) {
+        try { htmlBgmAudio.pause(); } catch (e) {}
+    }
+}
+
+function resumeHtmlBgmAfterForeground() {
+    if (!isIOSAudioDevice() || !htmlBgmAudio || !jsBgmTrack) return;
+    try {
+        htmlBgmAudio.muted = false;
+        htmlBgmAudio.volume = 0.9;
+        var p = htmlBgmAudio.play();
+        if (p && p.catch) p.catch(function(e) {
+            Module.printErr('[htmlbgm] foreground resume failed: ' + (e && e.message ? e.message : e));
+        });
+    } catch (e) {}
+}
+
 function playHtmlBgm(track, loop) {
     var a = ensureHtmlBgmAudio();
     if (!a) return false;
@@ -320,18 +339,29 @@ function clearGameInput() {
     window.addEventListener(type, function() {
         if (!audioUnlocked) return;
         resumeAudioContexts();
+        resumeHtmlBgmAfterForeground();
         window.setTimeout(resumeAudioContexts, 250);
+        window.setTimeout(resumeHtmlBgmAfterForeground, 250);
         window.setTimeout(resumeAudioContexts, 1000);
     });
 });
 
 document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        pauseHtmlBgmForBackground();
+        return;
+    }
     if (!document.hidden && audioUnlocked) {
         resumeAudioContexts();
+        resumeHtmlBgmAfterForeground();
         window.setTimeout(resumeAudioContexts, 250);
+        window.setTimeout(resumeHtmlBgmAfterForeground, 250);
         window.setTimeout(resumeAudioContexts, 1000);
     }
 });
+
+window.addEventListener('pagehide', pauseHtmlBgmForBackground);
+window.addEventListener('blur', pauseHtmlBgmForBackground);
 
 window.addEventListener('load', function () {
     tipsElement = document.getElementById('tips');
@@ -344,7 +374,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.32' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.33' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
