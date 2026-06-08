@@ -1,17 +1,7 @@
 {
-  "version": "pal95-big5-web-startpage3-hints-music-20260608",
-  "total_size": 88737639,
+  "version": "pal95-big5-web-startpage4-hints-music-20260608-r2",
+  "total_size": 88729447,
   "files": [
-    {
-      "path": "._generaluser-gs.sf2",
-      "size": 4096,
-      "sha256": "23a44fcd0a60e717bda74fd2a150e592fb1d4efe9493a20d2d0424786c6365d6"
-    },
-    {
-      "path": "._sdlpal.cfg",
-      "size": 4096,
-      "sha256": "23a44fcd0a60e717bda74fd2a150e592fb1d4efe9493a20d2d0424786c6365d6"
-    },
     {
       "path": "0.rpg",
       "size": 176432,
