@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.44';
+var BUILD_VERSION = '20260609.1';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -59,6 +59,7 @@ var spinnerElement = document.getElementById('spinner');
 var tipsElement;
 var loadingElement = document.getElementById('loadingScreen');
 var startButtonElement = document.getElementById('btnStartGame');
+var expMultiplierElement = document.getElementById('expMultiplier');
 var musicToggleElement = document.getElementById('btnToggleMusic');
 var soundToggleElement = document.getElementById('btnToggleSound');
 var installPromise = null;
@@ -81,6 +82,29 @@ var soundMuted = localStorage.getItem('sdlpal_sound_muted') === '1';
 var musicMuted = soundMuted;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
+
+function clampExpMultiplier(value) {
+    var n = parseInt(value, 10);
+    if (!isFinite(n) || n < 1) n = 1;
+    if (n > 20) n = 20;
+    return n;
+}
+
+var expMultiplier = clampExpMultiplier(localStorage.getItem('sdlpal_exp_multiplier') || '5');
+window.SDLPAL_expMultiplier = expMultiplier;
+
+function setExpMultiplier(value) {
+    expMultiplier = clampExpMultiplier(value);
+    window.SDLPAL_expMultiplier = expMultiplier;
+    localStorage.setItem('sdlpal_exp_multiplier', String(expMultiplier));
+    if (expMultiplierElement) expMultiplierElement.value = String(expMultiplier);
+}
+
+if (expMultiplierElement) {
+    expMultiplierElement.value = String(expMultiplier);
+    expMultiplierElement.addEventListener('change', function() { setExpMultiplier(expMultiplierElement.value); });
+    expMultiplierElement.addEventListener('input', function() { setExpMultiplier(expMultiplierElement.value); });
+}
 
 (function installAudioContextUnlockHook() {
     NativeAudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -924,6 +948,7 @@ function playOpeningMenuMusic() {
 }
 
 async function launch() {
+    if (expMultiplierElement) setExpMultiplier(expMultiplierElement.value);
     var checkFile = false;
     try {
         if (FS.stat('/data/fbp.mkf').size > 0) checkFile = true;
