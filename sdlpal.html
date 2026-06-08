@@ -141,7 +141,7 @@
       #utilityBar {
         position: fixed;
         top: 12px;
-        right: 12px;
+        left: 12px;
         z-index: 1001;
         display: flex;
         gap: 8px;
@@ -289,8 +289,7 @@
     </div>
 
     <div id="audioControls" aria-label="音訊開關">
-      <button id="btnToggleMusic" class="audio-toggle" onclick="toggleMusicMute();" title="禁用音樂" aria-label="禁用音樂">🎵</button>
-      <button id="btnToggleSound" class="audio-toggle" onclick="toggleSoundMute();" title="禁用音效" aria-label="禁用音效">🔊</button>
+      <button id="btnToggleSound" class="audio-toggle" onclick="toggleSoundMute();" title="禁用聲音" aria-label="禁用聲音">🔊</button>
     </div>
 
     <div id="mobileControls" aria-label="虛擬按鍵">
@@ -322,7 +321,7 @@
         <img id="logo" src="icon.png" alt="SDLPAL">
         <h1>真·仙剑奇侠传</h1>
         <div class="subtitle">SDLPAL Web Edition</div>
-        <div id="buildVersion">版本 20260608.36</div>
+        <div id="buildVersion">版本 20260608.37</div>
         <div class="spinner" id="spinner"></div>
         <div id="status">正在初始化...</div>
         <progress value="0" max="100" id="progress" hidden></progress>
@@ -332,8 +331,8 @@
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=20260608.36"></script>
-    <script type="text/javascript" src="sdlpal.js?v=20260608.36"></script>
+    <script type="text/javascript" src="main.js?v=20260608.37"></script>
+    <script type="text/javascript" src="sdlpal.js?v=20260608.37"></script>
 
     <script type="text/javascript">
       var userLang = navigator.language || navigator.userLanguage;

@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.36';
+var BUILD_VERSION = '20260608.37';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -72,12 +72,13 @@ var audioKeepAliveGain = null;
 var jsBgmGain = null;
 var jsBgmSource = null;
 var htmlBgmAudio = null;
+var currentIntroVideo = null;
 var htmlBgmUnlocked = false;
 var jsBgmTrack = 0;
 var jsBgmToken = 0;
 var jsBgmBuffers = {};
-var musicMuted = localStorage.getItem('sdlpal_music_muted') === '1';
 var soundMuted = localStorage.getItem('sdlpal_sound_muted') === '1';
+var musicMuted = soundMuted;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
 
@@ -179,19 +180,14 @@ function unlockAudioForIOS() {
 
 
 function updateAudioToggleButtons() {
-    if (musicToggleElement) {
-        musicToggleElement.classList.toggle('off', musicMuted);
-        musicToggleElement.textContent = musicMuted ? '🚫🎵' : '🎵';
-        musicToggleElement.title = musicMuted ? '啟用音樂' : '禁用音樂';
-        musicToggleElement.setAttribute('aria-label', musicToggleElement.title);
-    }
     if (soundToggleElement) {
         soundToggleElement.classList.toggle('off', soundMuted);
-        soundToggleElement.textContent = soundMuted ? '🚫🔊' : '🔊';
-        soundToggleElement.title = soundMuted ? '啟用音效' : '禁用音效';
+        soundToggleElement.textContent = soundMuted ? '🔇' : '🔊';
+        soundToggleElement.title = soundMuted ? '啟用聲音' : '禁用聲音';
         soundToggleElement.setAttribute('aria-label', soundToggleElement.title);
     }
 }
+
 
 function toggleMusicMute() {
     musicMuted = !musicMuted;
@@ -206,16 +202,27 @@ function toggleMusicMute() {
 
 function toggleSoundMute() {
     soundMuted = !soundMuted;
+    musicMuted = soundMuted;
     localStorage.setItem('sdlpal_sound_muted', soundMuted ? '1' : '0');
+    localStorage.setItem('sdlpal_music_muted', soundMuted ? '1' : '0');
     updateAudioToggleButtons();
+    if (currentIntroVideo) {
+        try {
+            currentIntroVideo.muted = soundMuted;
+            currentIntroVideo.volume = soundMuted ? 0 : 1.0;
+        } catch (e) {}
+    }
     if (soundMuted) {
+        pauseHtmlBgmForBackground();
         for (var i = 0; i < audioContexts.length; i++) {
             try { audioContexts[i] && audioContexts[i].suspend && audioContexts[i].suspend(); } catch (e) {}
         }
     } else {
         resumeAudioContexts();
+        resumeHtmlBgmAfterForeground();
     }
 }
+
 
 updateAudioToggleButtons();
 
@@ -265,7 +272,7 @@ function pauseHtmlBgmForBackground() {
 }
 
 function resumeHtmlBgmAfterForeground() {
-    if (musicMuted || !isIOSAudioDevice() || !htmlBgmAudio || !jsBgmTrack) return;
+    if (soundMuted || musicMuted || !isIOSAudioDevice() || !htmlBgmAudio || !jsBgmTrack) return;
     try {
         htmlBgmAudio.muted = false;
         htmlBgmAudio.volume = 0.9;
@@ -281,7 +288,7 @@ function playHtmlBgm(track, loop) {
     if (!a) return false;
     var n = Number(track) || 0;
     jsBgmTrack = n;
-    if (n <= 0 || musicMuted) {
+    if (n <= 0 || soundMuted || musicMuted) {
         try { a.pause(); } catch (e) {}
         return true;
     }
@@ -425,7 +432,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.36' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.37' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -735,8 +742,8 @@ function playIntroVideo(src) {
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
         video.autoplay = true;
-        video.muted = false;
-        video.volume = 1.0;
+        video.muted = soundMuted;
+        video.volume = soundMuted ? 0 : 1.0;
         video.preload = 'auto';
         video.controls = false;
         video.style.width = '100%';
@@ -752,6 +759,7 @@ function playIntroVideo(src) {
             window.removeEventListener('resize', updateBounds);
             window.removeEventListener('keydown', skip, true);
             window.removeEventListener('keyup', skip, true);
+            if (currentIntroVideo === video) currentIntroVideo = null;
             if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
             resolve();
         }
@@ -776,6 +784,7 @@ function playIntroVideo(src) {
         window.addEventListener('resize', updateBounds);
 
         wrap.appendChild(video);
+        currentIntroVideo = video;
         updateBounds();
         document.body.appendChild(wrap);
 
