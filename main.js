@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.2';
+var BUILD_VERSION = '20260609.3';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
