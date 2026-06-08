@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>真·仙剑奇侠传 20260609.4</title>
+    <title>真·仙剑奇侠传 20260609.5</title>
     <link rel="icon" href="icon.png" type="image/png">
     <style>
       :root {
@@ -275,35 +275,64 @@
         position: fixed;
         left: max(16px, env(safe-area-inset-left));
         bottom: max(18px, env(safe-area-inset-bottom));
-        width: 166px;
-        height: 166px;
+        width: 186px;
+        height: 186px;
         border-radius: 50%;
-        border: 1px solid rgba(246,216,120,.22);
-        background: radial-gradient(circle, rgba(246,216,120,.10), rgba(16,8,8,.22) 58%, rgba(0,0,0,.10));
-        box-shadow: inset 0 0 28px rgba(246,216,120,.08);
+        border: 1px solid rgba(246,216,120,.26);
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255,236,174,.18) 0 17%, transparent 18%),
+          conic-gradient(from -22.5deg, rgba(246,216,120,.08), rgba(246,216,120,.20), rgba(246,216,120,.08), rgba(246,216,120,.20), rgba(246,216,120,.08));
+        box-shadow: inset 0 0 34px rgba(246,216,120,.10), 0 10px 28px rgba(0,0,0,.35);
+        touch-action: none;
       }
-      .vc-pad::after {
+      .vc-pad::before {
         content: '';
+        position: absolute;
+        inset: 28px;
+        border-radius: 50%;
+        border: 1px dashed rgba(246,216,120,.20);
+      }
+      .vc-joy-knob {
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 34px;
-        height: 34px;
+        width: 48px;
+        height: 48px;
         transform: translate(-50%, -50%);
         border-radius: 50%;
-        border: 1px solid rgba(246,216,120,.28);
-        background: rgba(255,235,180,.06);
+        border: 2px solid rgba(255,239,191,.70);
+        background: radial-gradient(circle at 35% 30%, rgba(255,246,210,.35), rgba(96,36,28,.66));
+        box-shadow: 0 8px 22px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25);
+        pointer-events: none;
       }
-      .vc-pad .vc-btn {
+      .vc-dir {
         position: absolute;
-        width: 62px;
-        height: 62px;
-        font-size: 28px;
+        width: 36px;
+        height: 36px;
+        line-height: 36px;
+        margin-left: -18px;
+        margin-top: -18px;
+        border-radius: 50%;
+        color: rgba(255,234,180,.92);
+        font-size: 22px;
+        font-weight: 900;
+        text-align: center;
+        text-shadow: 0 2px 6px rgba(0,0,0,.75);
+        pointer-events: none;
       }
-      .vc-pad [data-key="Home"] { left: 16px; top: 16px; }
-      .vc-pad [data-key="PageUp"] { right: 16px; top: 16px; }
-      .vc-pad [data-key="End"] { left: 16px; bottom: 16px; }
-      .vc-pad [data-key="PageDown"] { right: 16px; bottom: 16px; }
+      .vc-dir.active {
+        color: #fff8d0;
+        background: rgba(150,28,32,.62);
+        box-shadow: 0 0 18px rgba(246,216,120,.32);
+      }
+      .vc-dir-nw { left: 27%; top: 27%; }
+      .vc-dir-n  { left: 50%; top: 14%; }
+      .vc-dir-ne { left: 73%; top: 27%; }
+      .vc-dir-w  { left: 14%; top: 50%; }
+      .vc-dir-e  { left: 86%; top: 50%; }
+      .vc-dir-sw { left: 27%; top: 73%; }
+      .vc-dir-s  { left: 50%; top: 86%; }
+      .vc-dir-se { left: 73%; top: 73%; }
       .vc-actions {
         position: fixed;
         right: max(16px, env(safe-area-inset-right));
@@ -331,12 +360,9 @@
       }
       @media (max-height: 430px) and (orientation: landscape) {
         .vc-btn { width: 48px; height: 48px; }
-        .vc-pad { width: 146px; height: 146px; }
-        .vc-pad .vc-btn { width: 54px; height: 54px; font-size: 24px; }
-        .vc-pad [data-key="Home"] { left: 14px; top: 14px; }
-        .vc-pad [data-key="PageUp"] { right: 14px; top: 14px; }
-        .vc-pad [data-key="End"] { left: 14px; bottom: 14px; }
-        .vc-pad [data-key="PageDown"] { right: 14px; bottom: 14px; }
+        .vc-pad { width: 150px; height: 150px; }
+        .vc-joy-knob { width: 40px; height: 40px; }
+        .vc-dir { width: 30px; height: 30px; line-height: 30px; margin-left: -15px; margin-top: -15px; font-size: 18px; }
         .vc-actions { grid-template-columns: repeat(2, 58px); gap: 8px; }
         .vc-actions .vc-btn { width: 58px; height: 48px; font-size: 14px; }
         .vc-battle { top: max(10px, env(safe-area-inset-top)); bottom: auto; }
@@ -359,11 +385,16 @@
     </div>
 
     <div id="mobileControls" aria-label="虛擬按鍵">
-      <div class="vc-pad">
-        <button class="vc-btn" data-key="Home" title="Home">↖</button>
-        <button class="vc-btn" data-key="End" title="End">↙</button>
-        <button class="vc-btn" data-key="PageUp" title="PageUp">↗</button>
-        <button class="vc-btn" data-key="PageDown" title="PageDown">↘</button>
+      <div class="vc-pad" id="virtualJoystick" aria-label="八方向搖桿">
+        <span class="vc-dir vc-dir-nw" data-joy-key="Home">↖</span>
+        <span class="vc-dir vc-dir-n" data-joy-key="ArrowUp">↑</span>
+        <span class="vc-dir vc-dir-ne" data-joy-key="PageUp">↗</span>
+        <span class="vc-dir vc-dir-w" data-joy-key="ArrowLeft">←</span>
+        <span class="vc-dir vc-dir-e" data-joy-key="ArrowRight">→</span>
+        <span class="vc-dir vc-dir-sw" data-joy-key="End">↙</span>
+        <span class="vc-dir vc-dir-s" data-joy-key="ArrowDown">↓</span>
+        <span class="vc-dir vc-dir-se" data-joy-key="PageDown">↘</span>
+        <span class="vc-joy-knob" id="virtualJoystickKnob"></span>
       </div>
       <div class="vc-actions">
         <button class="vc-btn" data-key="Enter">回車</button>
@@ -385,9 +416,9 @@
     <div id="loadingScreen">
       <div class="loading-card">
         <img id="logo" src="icon.png" alt="SDLPAL">
-        <h1>真·仙剑奇侠传 20260609.4</h1>
+        <h1>真·仙剑奇侠传 20260609.5</h1>
         <div class="subtitle">SDLPAL Web Edition</div>
-        <div id="buildVersion">版本 20260609.4</div>
+        <div id="buildVersion">版本 20260609.5</div>
         <div class="tuning-panel" id="tuningPanel">
           <label class="tuning-setting"><span id="expLabelText">戰鬥經驗</span><input id="expMultiplier" type="range" min="1" max="50" step="1" value="5"><span class="tuning-value"><span id="expMultiplierValue">5</span> 倍</span></label>
           <label class="tuning-setting"><span id="speedLabelText">遊戲速度</span><input id="gameSpeed" type="range" min="1" max="5" step="1" value="1"><span class="tuning-value"><span id="gameSpeedValue">1</span> 倍</span></label>
@@ -401,8 +432,8 @@
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=20260609.4"></script>
-    <script type="text/javascript" src="sdlpal.js?v=20260609.4"></script>
+    <script type="text/javascript" src="main.js?v=20260609.5"></script>
+    <script type="text/javascript" src="sdlpal.js?v=20260609.5"></script>
 
     <script type="text/javascript">
       var userLang = navigator.language || navigator.userLanguage;

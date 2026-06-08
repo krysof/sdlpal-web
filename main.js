@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.4';
+var BUILD_VERSION = '20260609.5';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -866,6 +866,7 @@ var isBattleActiveFunc = null;
 var setIntroPlayingFunc = null;
 var playOpeningMenuMusicFunc = null;
 var battlePollTimer = null;
+var joystickActiveKey = null;
 
 function keyInfo(key) {
     var table = {
@@ -900,11 +901,91 @@ function dispatchVirtualKey(key, type) {
     window.dispatchEvent(ev);
 }
 
+function setJoystickVisual(key, dx, dy) {
+    var knob = document.getElementById('virtualJoystickKnob');
+    var pad = document.getElementById('virtualJoystick');
+    var max = 0;
+    if (pad) max = Math.max(0, pad.clientWidth / 2 - 28);
+    if (knob) {
+        if (key && max > 0) {
+            var len = Math.sqrt(dx * dx + dy * dy) || 1;
+            var x = Math.max(-max, Math.min(max, dx / len * max * 0.62));
+            var y = Math.max(-max, Math.min(max, dy / len * max * 0.62));
+            knob.style.transform = 'translate(calc(-50% + ' + x.toFixed(1) + 'px), calc(-50% + ' + y.toFixed(1) + 'px))';
+        } else {
+            knob.style.transform = 'translate(-50%, -50%)';
+        }
+    }
+    document.querySelectorAll('.vc-dir').forEach(function(el) {
+        el.classList.toggle('active', !!key && el.getAttribute('data-joy-key') === key);
+    });
+}
+
+function joystickKeyFromPoint(pad, clientX, clientY) {
+    var rect = pad.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var dx = clientX - cx;
+    var dy = clientY - cy;
+    var dead = Math.max(18, rect.width * 0.14);
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < dead) return {key: null, dx: dx, dy: dy};
+    var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    if (angle < 0) angle += 360;
+    var dirs = ['ArrowRight', 'PageDown', 'ArrowDown', 'End', 'ArrowLeft', 'Home', 'ArrowUp', 'PageUp'];
+    var idx = Math.round(angle / 45) % 8;
+    return {key: dirs[idx], dx: dx, dy: dy};
+}
+
+function setJoystickKey(key, dx, dy) {
+    if (key === joystickActiveKey) {
+        setJoystickVisual(key, dx || 0, dy || 0);
+        return;
+    }
+    if (joystickActiveKey) dispatchVirtualKey(joystickActiveKey, 'keyup');
+    joystickActiveKey = key;
+    if (joystickActiveKey) dispatchVirtualKey(joystickActiveKey, 'keydown');
+    setJoystickVisual(joystickActiveKey, dx || 0, dy || 0);
+}
+
+function initVirtualJoystick(controls) {
+    var pad = document.getElementById('virtualJoystick');
+    if (!pad) return;
+    var pointerId = null;
+    function update(e) {
+        var p = joystickKeyFromPoint(pad, e.clientX, e.clientY);
+        setJoystickKey(p.key, p.dx, p.dy);
+    }
+    pad.addEventListener('pointerdown', function(e) {
+        e.preventDefault();
+        unlockAudioForIOS();
+        pointerId = e.pointerId;
+        try { pad.setPointerCapture(pointerId); } catch (_) {}
+        update(e);
+    });
+    pad.addEventListener('pointermove', function(e) {
+        if (pointerId !== e.pointerId) return;
+        e.preventDefault();
+        update(e);
+    });
+    function end(e) {
+        if (pointerId !== null && e && e.pointerId !== pointerId) return;
+        if (e) e.preventDefault();
+        pointerId = null;
+        setJoystickKey(null, 0, 0);
+    }
+    pad.addEventListener('pointerup', end);
+    pad.addEventListener('pointercancel', end);
+    pad.addEventListener('lostpointercapture', function(){ pointerId = null; setJoystickKey(null, 0, 0); });
+    pad.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+}
+
 function initVirtualControls() {
     if (virtualControlsInitialized) return;
     virtualControlsInitialized = true;
     var controls = document.getElementById('mobileControls');
     if (!controls) return;
+    initVirtualJoystick(controls);
 
     controls.querySelectorAll('[data-key]').forEach(function(btn) {
         var key = btn.getAttribute('data-key');
