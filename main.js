@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260608.26';
+var BUILD_VERSION = '20260608.27';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -63,6 +63,8 @@ var installPromise = null;
 var gameStarted = false;
 var audioUnlocked = false;
 var audioContexts = [];
+var introInputBlockUntil = 0;
+var clearKeyStateFunc = null;
 
 (function installAudioContextUnlockHook() {
     var NativeAudioContext = window.AudioContext || window.webkitAudioContext;
@@ -113,6 +115,32 @@ function unlockAudioForIOS() {
     resumeAudioContexts();
 }
 
+function isIntroInputBlocked() {
+    return Date.now() < introInputBlockUntil;
+}
+
+function blockIntroInputEvent(e) {
+    if (!isIntroInputBlocked()) return;
+    if (e && (e.type === 'keydown' || e.type === 'keyup' || e.type === 'keypress')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+    }
+}
+
+['keydown', 'keyup', 'keypress'].forEach(function(type) {
+    window.addEventListener(type, blockIntroInputEvent, {capture: true, passive: false});
+});
+
+function clearGameInput() {
+    try {
+        if (!clearKeyStateFunc) {
+            clearKeyStateFunc = Module.cwrap('EMSCRIPTEN_clear_key_state', null, []);
+        }
+        clearKeyStateFunc();
+    } catch (e) {}
+}
+
 
 ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'click'].forEach(function(type) {
     window.addEventListener(type, unlockAudioForIOS, {capture: true, passive: true});
@@ -146,7 +174,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.26' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260608.27' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -467,13 +495,18 @@ function playIntroVideo(src) {
             if (done) return;
             done = true;
             window.removeEventListener('resize', updateBounds);
-            window.removeEventListener('keydown', skip);
-            window.removeEventListener('keyup', skip);
+            window.removeEventListener('keydown', skip, true);
+            window.removeEventListener('keyup', skip, true);
             if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
             resolve();
         }
         function skip(e) {
-            if (e) e.preventDefault();
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            }
+            introInputBlockUntil = Date.now() + 900;
             cleanup();
         }
 
@@ -483,8 +516,8 @@ function playIntroVideo(src) {
             cleanup();
         });
         wrap.addEventListener('click', skip);
-        window.addEventListener('keydown', skip);
-        window.addEventListener('keyup', skip);
+        window.addEventListener('keydown', skip, true);
+        window.addEventListener('keyup', skip, true);
         window.addEventListener('resize', updateBounds);
 
         wrap.appendChild(video);
@@ -663,13 +696,20 @@ async function launch() {
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 300);
         await playIntroSequence();
+        introInputBlockUntil = Date.now() + 900;
+        clearGameInput();
         unlockAudioForIOS();
         setIntroPlaying(false);
+        clearGameInput();
+        window.setTimeout(clearGameInput, 120);
+        window.setTimeout(clearGameInput, 450);
         window.setTimeout(resumeAudioContexts, 0);
         window.setTimeout(resumeAudioContexts, 500);
         return;
     }
     await playIntroSequence();
+    introInputBlockUntil = Date.now() + 900;
+    clearGameInput();
     unlockAudioForIOS();
     setVirtualControlsVisible(true);
     runGame();
