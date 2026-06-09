@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.23';
+var BUILD_VERSION = '20260609.24';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -635,14 +635,6 @@ function stopDialogVoice() {
     setDialogVoiceDucking(false);
 }
 
-Module.SDLPAL_playStoryVideo = function(videoId) {
-    var id = Number(videoId) || 0;
-    if (id === 1) {
-        return playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('1.mp4', BUILD_VERSION));
-    }
-    return Promise.resolve(false);
-};
-
 window.SDLPAL_playBgm = function(track, loop) {
     if (playHtmlBgm(track, loop)) return 1;
     if (isIOSAudioDevice()) {
@@ -722,7 +714,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.23' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.24' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -763,6 +755,13 @@ var Module = {
 };
 Module.SDLPAL_playDialogVoice = playDialogVoice;
 Module.SDLPAL_stopDialogVoice = stopDialogVoice;
+Module.SDLPAL_playStoryVideo = function(videoId) {
+    var id = Number(videoId) || 0;
+    if (id === 1) {
+        return playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('1.mp4', BUILD_VERSION));
+    }
+    return Promise.resolve(false);
+};
 
 function onRuntimeInitialized() {
     try { FS.mkdir('/data'); } catch (e) {}
