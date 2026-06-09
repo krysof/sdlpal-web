@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.48';
+var BUILD_VERSION = '20260609.49';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceDocumentTitle() {
     try {
@@ -837,7 +837,7 @@ var Module = {
         forceDocumentTitle();
     },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.48' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.49' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
