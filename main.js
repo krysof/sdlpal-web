@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.20';
+var BUILD_VERSION = '20260609.22';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -621,15 +621,6 @@ function playStoryVideoOnce(key, src) {
 function playDialogVoice(msgId) {
     var id = Number(msgId) || 0;
     if (!id) return 0;
-
-    // 1887: 張四哥 arrives at 仙靈島. Play the custom story MP4 first,
-    // then let the arrival dialog voice play after the overlay is gone.
-    if (id === 1887 && !storyVideosPlayed.xianlingdaoMedicine1) {
-        playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('1.mp4', BUILD_VERSION))
-            .then(function() { enqueueDialogVoice(id); });
-        return 1;
-    }
-
     return enqueueDialogVoice(id);
 }
 
@@ -643,6 +634,14 @@ function stopDialogVoice() {
     }
     setDialogVoiceDucking(false);
 }
+
+Module.SDLPAL_playStoryVideo = function(videoId) {
+    var id = Number(videoId) || 0;
+    if (id === 1) {
+        return playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('1.mp4', BUILD_VERSION));
+    }
+    return Promise.resolve(false);
+};
 
 window.SDLPAL_playBgm = function(track, loop) {
     if (playHtmlBgm(track, loop)) return 1;
@@ -723,7 +722,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.20' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.22' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
