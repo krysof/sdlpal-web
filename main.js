@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.19';
+var BUILD_VERSION = '20260609.20';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -98,6 +98,8 @@ var dialogVoiceIds = null;
 var dialogVoiceToken = 0;
 var dialogVoiceQueue = [];
 var dialogVoicePlaying = false;
+var storyVideosPlayed = {};
+var storyVideoPromise = null;
 
 function clampExpMultiplier(value) {
     var n = parseInt(value, 10);
@@ -596,13 +598,39 @@ function drainDialogVoiceQueue() {
     });
 }
 
-function playDialogVoice(msgId) {
+function enqueueDialogVoice(id) {
     if (soundMuted || voiceMuted) return 0;
-    var id = Number(msgId) || 0;
-    if (!id) return 0;
     dialogVoiceQueue.push(id);
     drainDialogVoiceQueue();
     return 1;
+}
+
+function playStoryVideoOnce(key, src) {
+    if (storyVideosPlayed[key]) return Promise.resolve(false);
+    storyVideosPlayed[key] = true;
+    if (storyVideoPromise) return storyVideoPromise;
+    try { pauseHtmlBgmForBackground(); } catch (e) {}
+    storyVideoPromise = playIntroVideo(src).then(function() {
+        storyVideoPromise = null;
+        try { resumeHtmlBgmAfterForeground(); } catch (e) {}
+        return true;
+    });
+    return storyVideoPromise;
+}
+
+function playDialogVoice(msgId) {
+    var id = Number(msgId) || 0;
+    if (!id) return 0;
+
+    // 1887: 張四哥 arrives at 仙靈島. Play the custom story MP4 first,
+    // then let the arrival dialog voice play after the overlay is gone.
+    if (id === 1887 && !storyVideosPlayed.xianlingdaoMedicine1) {
+        playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('1.mp4', BUILD_VERSION))
+            .then(function() { enqueueDialogVoice(id); });
+        return 1;
+    }
+
+    return enqueueDialogVoice(id);
 }
 
 function stopDialogVoice() {
@@ -695,7 +723,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.19' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.20' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
