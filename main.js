@@ -1,4 +1,11 @@
-var BUILD_VERSION = '20260609.47';
+var BUILD_VERSION = '20260609.48';
+var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
+function forceDocumentTitle() {
+    try {
+        document.title = APP_TITLE;
+    } catch (e) {}
+}
+forceDocumentTitle();
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -825,8 +832,12 @@ var Module = {
     postRun: [],
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
+    setWindowTitle: function(text) {
+        /* SDL/Emscripten may set window title to PAL95/SDLPal at runtime. */
+        forceDocumentTitle();
+    },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.47' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.48' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
