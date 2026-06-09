@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.28';
+var BUILD_VERSION = '20260609.29';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -100,6 +100,7 @@ var dialogVoiceQueue = [];
 var dialogVoicePlaying = false;
 var storyVideosPlayed = {};
 var storyVideoPromise = null;
+var storyVideoElement = null;
 
 function clampExpMultiplier(value) {
     var n = parseInt(value, 10);
@@ -605,16 +606,71 @@ function enqueueDialogVoice(id) {
     return 1;
 }
 
+function ensureStoryVideoElement(src) {
+    if (!storyVideoElement) {
+        storyVideoElement = document.createElement('video');
+        storyVideoElement.playsInline = true;
+        storyVideoElement.setAttribute('playsinline', '');
+        storyVideoElement.setAttribute('webkit-playsinline', '');
+        storyVideoElement.preload = 'auto';
+        storyVideoElement.controls = false;
+    }
+    if (storyVideoElement.src !== src) storyVideoElement.src = src;
+    return storyVideoElement;
+}
+
+function primeStoryVideoAudio(src) {
+    if (soundMuted) return;
+    var v = ensureStoryVideoElement(src);
+    v.muted = false;
+    v.defaultMuted = false;
+    v.removeAttribute('muted');
+    v.volume = 0.001;
+    v.style.position = 'fixed';
+    v.style.left = '-4px';
+    v.style.top = '-4px';
+    v.style.width = '1px';
+    v.style.height = '1px';
+    v.style.opacity = '0';
+    v.style.pointerEvents = 'none';
+    if (!v.parentNode) document.body.appendChild(v);
+    try {
+        var p = v.play();
+        if (p && p.then) {
+            p.then(function() {
+                window.setTimeout(function() {
+                    try { v.pause(); } catch (e) {}
+                    try { v.currentTime = 0; } catch (e) {}
+                    v.volume = 1.0;
+                    Module.print('[storyvideo] audio primed');
+                }, 80);
+            }).catch(function(e) {
+                Module.printErr('[storyvideo] audio prime failed: ' + (e && e.message ? e.message : e));
+                v.volume = 1.0;
+            });
+        } else {
+            window.setTimeout(function() {
+                try { v.pause(); } catch (e) {}
+                try { v.currentTime = 0; } catch (e) {}
+                v.volume = 1.0;
+            }, 80);
+        }
+    } catch (e) {
+        Module.printErr('[storyvideo] audio prime failed: ' + (e && e.message ? e.message : e));
+        v.volume = 1.0;
+    }
+}
+
 function playStoryVideoOnce(key, src) {
     if (storyVideosPlayed[key]) return Promise.resolve(false);
     storyVideosPlayed[key] = true;
     if (storyVideoPromise) return storyVideoPromise;
 
-    Module.print('[storyvideo] force play ' + key + ' ' + src);
+    Module.print('[storyvideo] force play with audio ' + key + ' ' + src);
     try { stopDialogVoice(); } catch (e) {}
     try { pauseHtmlBgmForBackground(); } catch (e) {}
 
-    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false, forceMuted: true, unskippableUntilStarted: true}).then(function() {
+    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false, videoElement: ensureStoryVideoElement(src), keepVideoElement: true, unskippableUntilStarted: true}).then(function() {
         storyVideoPromise = null;
         try { resumeHtmlBgmAfterForeground(); } catch (e) {}
         try { clearGameInput(); } catch (e) {}
@@ -720,7 +776,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.28' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.29' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -1034,7 +1090,8 @@ function playIntroVideo(src, options) {
             }
         }
 
-        var video = document.createElement('video');
+        var video = options.videoElement || document.createElement('video');
+        if (video.parentNode) video.parentNode.removeChild(video);
         video.src = src;
         video.playsInline = true;
         video.setAttribute('playsinline', '');
@@ -1044,6 +1101,9 @@ function playIntroVideo(src, options) {
         if (forceMuted) {
             video.defaultMuted = true;
             video.setAttribute('muted', '');
+        } else {
+            video.defaultMuted = false;
+            video.removeAttribute('muted');
         }
         video.muted = soundMuted || forceMuted;
         video.volume = (soundMuted || forceMuted) ? 0 : 1.0;
@@ -1073,13 +1133,31 @@ function playIntroVideo(src, options) {
         tapPrompt.style.zIndex = '2';
 
         var done = false;
+        function onVideoError(e) {
+            Module.printErr('Intro video failed: ' + src);
+            cleanup();
+        }
         function cleanup() {
             if (done) return;
             done = true;
             window.removeEventListener('resize', updateBounds);
             window.removeEventListener('keydown', skip, true);
             window.removeEventListener('keyup', skip, true);
+            video.removeEventListener('ended', cleanup);
+            video.removeEventListener('error', onVideoError);
             if (currentIntroVideo === video) currentIntroVideo = null;
+            if (options.keepVideoElement) {
+                try { video.pause(); } catch (e) {}
+                video.style.position = 'fixed';
+                video.style.left = '-4px';
+                video.style.top = '-4px';
+                video.style.width = '1px';
+                video.style.height = '1px';
+                video.style.opacity = '0';
+                video.style.pointerEvents = 'none';
+                if (video.parentNode) video.parentNode.removeChild(video);
+                document.body.appendChild(video);
+            }
             if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
             resolve();
         }
@@ -1112,10 +1190,7 @@ function playIntroVideo(src, options) {
         }
 
         video.addEventListener('ended', cleanup);
-        video.addEventListener('error', function(e) {
-            Module.printErr('Intro video failed: ' + src);
-            cleanup();
-        });
+        video.addEventListener('error', onVideoError);
         wrap.addEventListener('click', skip);
         window.addEventListener('keydown', skip, true);
         window.addEventListener('keyup', skip, true);
@@ -1378,6 +1453,7 @@ async function launch() {
     if (deleteButton) deleteButton.style.display = 'none';
     hideLoadingScreen();
     unlockAudioForIOS();
+    primeStoryVideoAudio(dataUrl('1.mp4', BUILD_VERSION));
     if (isIOSAudioDevice()) {
         /*
          * Create/unlock one shared AudioContext in the Start tap, then let the
