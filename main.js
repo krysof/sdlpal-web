@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.12';
+var BUILD_VERSION = '20260609.13';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -81,7 +81,7 @@ var htmlBgmSourceNode = null;
 var htmlBgmGainNode = null;
 var dialogVoiceDuckingActive = false;
 var BGM_NORMAL_VOLUME = 0.9;
-var BGM_DUCKED_VOLUME = 0.03;
+var BGM_DUCKED_VOLUME = 0.72;
 var currentIntroVideo = null;
 var htmlBgmUnlocked = false;
 var jsBgmTrack = 0;
@@ -651,7 +651,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.12' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.13' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
