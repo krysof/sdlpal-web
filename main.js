@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.69';
+var BUILD_VERSION = '20260609.70';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -161,35 +161,61 @@ window.SDLPAL_expMultiplier = expMultiplier;
 window.SDLPAL_cashMultiplier = cashMultiplier;
 window.SDLPAL_gameSpeedMultiplier = gameSpeedMultiplier;
 window.SDLPAL_battleTimingPressAt = 0;
+window.SDLPAL_battleTimingLastPressAt = 0;
+window.SDLPAL_battleTimingWindowStart = 0;
+window.SDLPAL_battleTimingPressCount = 0;
+window.SDLPAL_battleTimingBadWindow = 0;
+var battleTimingLastDomEventAt = 0;
 
 function nowForBattleTiming() {
     try { return performance.now(); } catch (e) { return Date.now(); }
 }
 
+window.SDLPAL_beginBattleTimingWindow = function(prePenaltyMs) {
+    var now = nowForBattleTiming();
+    var pre = Number(prePenaltyMs || 320);
+    var last = Number(window.SDLPAL_battleTimingLastPressAt || 0);
+    window.SDLPAL_battleTimingWindowStart = now;
+    window.SDLPAL_battleTimingPressAt = 0;
+    window.SDLPAL_battleTimingPressCount = 0;
+    window.SDLPAL_battleTimingBadWindow = (last > 0 && now - last < pre) ? 1 : 0;
+};
+
 window.SDLPAL_markBattleTimingPress = function() {
-    window.SDLPAL_battleTimingPressAt = nowForBattleTiming();
+    var now = nowForBattleTiming();
+    window.SDLPAL_battleTimingLastPressAt = now;
+    window.SDLPAL_battleTimingPressAt = now;
+    if (Number(window.SDLPAL_battleTimingWindowStart || 0) > 0) {
+        window.SDLPAL_battleTimingPressCount = Number(window.SDLPAL_battleTimingPressCount || 0) + 1;
+    }
 };
 
 window.SDLPAL_clearBattleTimingPress = function() {
     window.SDLPAL_battleTimingPressAt = 0;
+    window.SDLPAL_battleTimingWindowStart = 0;
+    window.SDLPAL_battleTimingPressCount = 0;
+    window.SDLPAL_battleTimingBadWindow = 0;
 };
 
 window.SDLPAL_consumeBattleTimingPress = function(windowMs) {
-    var now = nowForBattleTiming();
     var t = Number(window.SDLPAL_battleTimingPressAt || 0);
-    var ms = Number(windowMs || 240);
-    if (t > 0 && now >= t && now - t <= ms) {
-        window.SDLPAL_battleTimingPressAt = 0;
-        return 1;
-    }
-    return 0;
+    var start = Number(window.SDLPAL_battleTimingWindowStart || 0);
+    var ms = Number(windowMs || 220);
+    var count = Number(window.SDLPAL_battleTimingPressCount || 0);
+    var ok = !!(start > 0 && t >= start && t - start <= ms && count === 1 && !window.SDLPAL_battleTimingBadWindow);
+    window.SDLPAL_clearBattleTimingPress();
+    return ok ? 1 : 0;
 };
 
 function markBattleTimingFromEvent(e) {
     if (!gameStarted) return;
     if (e && e.type === 'keydown') {
         if (e.key !== ' ' && e.code !== 'Space' && e.keyCode !== 32) return;
+        if (e.repeat) return;
     }
+    var now = nowForBattleTiming();
+    if (now - battleTimingLastDomEventAt < 45) return;
+    battleTimingLastDomEventAt = now;
     window.SDLPAL_markBattleTimingPress();
 }
 
