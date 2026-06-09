@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.24';
+var BUILD_VERSION = '20260609.25';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -714,7 +714,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.24' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.25' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -1043,6 +1043,23 @@ function playIntroVideo(src) {
         video.style.background = '#000';
         video.style.imageRendering = 'pixelated';
 
+        var needsTapToPlay = false;
+        var tapPrompt = document.createElement('div');
+        tapPrompt.textContent = '點擊播放動畫';
+        tapPrompt.style.position = 'absolute';
+        tapPrompt.style.left = '50%';
+        tapPrompt.style.top = '50%';
+        tapPrompt.style.transform = 'translate(-50%, -50%)';
+        tapPrompt.style.padding = '14px 22px';
+        tapPrompt.style.border = '1px solid rgba(246, 226, 161, .8)';
+        tapPrompt.style.borderRadius = '999px';
+        tapPrompt.style.background = 'rgba(0, 0, 0, .72)';
+        tapPrompt.style.color = '#f6e2a1';
+        tapPrompt.style.font = '700 18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+        tapPrompt.style.letterSpacing = '.08em';
+        tapPrompt.style.display = 'none';
+        tapPrompt.style.zIndex = '2';
+
         var done = false;
         function cleanup() {
             if (done) return;
@@ -1054,11 +1071,26 @@ function playIntroVideo(src) {
             if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
             resolve();
         }
+        function tryStartVideo() {
+            needsTapToPlay = false;
+            tapPrompt.style.display = 'none';
+            var p = video.play();
+            if (p && p.catch) p.catch(function(e) {
+                needsTapToPlay = true;
+                tapPrompt.style.display = 'block';
+                Module.printErr('Intro autoplay failed, waiting for tap: ' + src + ' / ' + (e && e.message ? e.message : e));
+            });
+        }
+
         function skip(e) {
             if (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            }
+            if (needsTapToPlay) {
+                tryStartVideo();
+                return;
             }
             introInputBlockUntil = Date.now() + 900;
             cleanup();
@@ -1075,15 +1107,12 @@ function playIntroVideo(src) {
         window.addEventListener('resize', updateBounds);
 
         wrap.appendChild(video);
+        wrap.appendChild(tapPrompt);
         currentIntroVideo = video;
         updateBounds();
         document.body.appendChild(wrap);
 
-        var p = video.play();
-        if (p && p.catch) p.catch(function(e) {
-            Module.printErr('Intro autoplay failed, skipping: ' + src);
-            cleanup();
-        });
+        tryStartVideo();
     });
 }
 
