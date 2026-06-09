@@ -1,6 +1,6 @@
 {
-  "version": "pal95-big5-web-20260608.34-intro",
-  "total_size": 104443572,
+  "version": "pal95-big5-web-20260609.12-title",
+  "total_size": 104334528,
   "files": [
     {
       "path": "0.rpg",
@@ -9,8 +9,8 @@
     },
     {
       "path": "2.mp4",
-      "size": 17457783,
-      "sha256": "0532f9d8a418bda6a26615ff4ad403409e5e5b7005a3b5492adcedc38484f4f5"
+      "size": 17348739,
+      "sha256": "6b197d7c639cf76609a589003bcc157c572127ad66db12c6c09daa00312360cc"
     },
     {
       "path": "3.mp4",
