@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.10';
+var BUILD_VERSION = '20260609.11';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -77,6 +77,11 @@ var audioKeepAliveGain = null;
 var jsBgmGain = null;
 var jsBgmSource = null;
 var htmlBgmAudio = null;
+var htmlBgmSourceNode = null;
+var htmlBgmGainNode = null;
+var dialogVoiceDuckingActive = false;
+var BGM_NORMAL_VOLUME = 0.9;
+var BGM_DUCKED_VOLUME = 0.03;
 var currentIntroVideo = null;
 var htmlBgmUnlocked = false;
 var jsBgmTrack = 0;
@@ -319,11 +324,57 @@ function ensureHtmlBgmAudio() {
     return htmlBgmAudio;
 }
 
+function getTargetBgmVolume() {
+    return dialogVoiceDuckingActive ? BGM_DUCKED_VOLUME : BGM_NORMAL_VOLUME;
+}
+
+function ensureHtmlBgmGain() {
+    if (!isIOSAudioDevice()) return false;
+    var a = ensureHtmlBgmAudio();
+    if (!a || htmlBgmGainNode) return !!htmlBgmGainNode;
+    var ctx = ensureSharedAudioContext();
+    if (!ctx || !ctx.createMediaElementSource) return false;
+    try {
+        htmlBgmSourceNode = ctx.createMediaElementSource(a);
+        htmlBgmGainNode = ctx.createGain();
+        htmlBgmGainNode.gain.value = getTargetBgmVolume();
+        htmlBgmSourceNode.connect(htmlBgmGainNode);
+        htmlBgmGainNode.connect(ctx.destination);
+        a.volume = 1.0;
+        Module.print('[htmlbgm] WebAudio gain enabled');
+        return true;
+    } catch (e) {
+        htmlBgmSourceNode = null;
+        htmlBgmGainNode = null;
+        Module.printErr('[htmlbgm] WebAudio gain failed: ' + (e && e.message ? e.message : e));
+        return false;
+    }
+}
+
+function applyHtmlBgmVolume() {
+    var v = getTargetBgmVolume();
+    try {
+        if (htmlBgmGainNode) {
+            var ctx = htmlBgmGainNode.context;
+            if (htmlBgmGainNode.gain.setTargetAtTime && ctx) {
+                htmlBgmGainNode.gain.setTargetAtTime(v, ctx.currentTime, 0.03);
+            } else {
+                htmlBgmGainNode.gain.value = v;
+            }
+            if (htmlBgmAudio) htmlBgmAudio.volume = 1.0;
+        } else if (htmlBgmAudio) {
+            htmlBgmAudio.volume = v;
+        }
+    } catch (e) {}
+}
+
 function unlockHtmlBgmAudio() {
     var a = ensureHtmlBgmAudio();
     if (!a || htmlBgmUnlocked) return;
+    ensureHtmlBgmGain();
     try {
-        a.volume = 0;
+        if (htmlBgmGainNode) htmlBgmGainNode.gain.value = 0;
+        else a.volume = 0;
         a.loop = true;
         var p = a.play();
         if (p && p.then) {
@@ -348,8 +399,9 @@ function pauseHtmlBgmForBackground() {
 function resumeHtmlBgmAfterForeground() {
     if (soundMuted || musicMuted || !htmlBgmAudio || !jsBgmTrack) return;
     try {
+        ensureHtmlBgmGain();
         htmlBgmAudio.muted = false;
-        htmlBgmAudio.volume = 0.9;
+        applyHtmlBgmVolume();
         var p = htmlBgmAudio.play();
         if (p && p.catch) p.catch(function(e) {
             Module.printErr('[htmlbgm] foreground resume failed: ' + (e && e.message ? e.message : e));
@@ -369,8 +421,9 @@ function playHtmlBgm(track, loop) {
     var url = bgmUrlForTrack(n);
     try {
         a.loop = !!loop;
+        ensureHtmlBgmGain();
         a.muted = false;
-        a.volume = dialogVoiceAudio && !dialogVoiceAudio.paused ? 0.10 : 0.9;
+        applyHtmlBgmVolume();
         var sameTrack = a.src.indexOf('data/bgm/' + String(n).padStart(3, '0') + '.m4a') >= 0;
         if (!sameTrack) {
             a.src = url;
@@ -451,13 +504,15 @@ function ensureDialogVoiceAudio() {
 }
 
 function setDialogVoiceDucking(active) {
+    dialogVoiceDuckingActive = !!active;
     try {
         if (htmlBgmAudio && jsBgmTrack && !soundMuted && !musicMuted) {
-            htmlBgmAudio.volume = active ? 0.10 : 0.9;
+            ensureHtmlBgmGain();
+            applyHtmlBgmVolume();
         }
     } catch (e) {}
     try {
-        if (jsBgmGain) jsBgmGain.gain.value = active ? 0.10 : 0.85;
+        if (jsBgmGain) jsBgmGain.gain.value = active ? BGM_DUCKED_VOLUME : 0.85;
     } catch (e) {}
 }
 
@@ -596,7 +651,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.10' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.11' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
