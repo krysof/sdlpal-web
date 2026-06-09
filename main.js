@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.9';
+var BUILD_VERSION = '20260609.10';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -370,7 +370,7 @@ function playHtmlBgm(track, loop) {
     try {
         a.loop = !!loop;
         a.muted = false;
-        a.volume = dialogVoiceAudio && !dialogVoiceAudio.paused ? 0.35 : 0.9;
+        a.volume = dialogVoiceAudio && !dialogVoiceAudio.paused ? 0.10 : 0.9;
         var sameTrack = a.src.indexOf('data/bgm/' + String(n).padStart(3, '0') + '.m4a') >= 0;
         if (!sameTrack) {
             a.src = url;
@@ -453,11 +453,11 @@ function ensureDialogVoiceAudio() {
 function setDialogVoiceDucking(active) {
     try {
         if (htmlBgmAudio && jsBgmTrack && !soundMuted && !musicMuted) {
-            htmlBgmAudio.volume = active ? 0.35 : 0.9;
+            htmlBgmAudio.volume = active ? 0.10 : 0.9;
         }
     } catch (e) {}
     try {
-        if (jsBgmGain) jsBgmGain.gain.value = active ? 0.30 : 0.85;
+        if (jsBgmGain) jsBgmGain.gain.value = active ? 0.10 : 0.85;
     } catch (e) {}
 }
 
@@ -596,7 +596,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.9' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.10' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
