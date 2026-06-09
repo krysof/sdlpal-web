@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.50';
+var BUILD_VERSION = '20260609.51';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceDocumentTitle() {
     try {
@@ -897,6 +897,9 @@ Module.SDLPAL_playStoryVideo = function(videoId) {
     }
     if (id === 4) {
         return playStoryVideoOnce('xianlingdaoMedicine4', dataUrl('movie/04 仙灵岛求药 4.mp4', BUILD_VERSION));
+    }
+    if (id === 5) {
+        return playStoryVideoOnce('jiuJianxianIntro', dataUrl('movie/05 酒剑仙.mp4', BUILD_VERSION));
     }
     return Promise.resolve(false);
 };
