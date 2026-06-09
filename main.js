@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.38';
+var BUILD_VERSION = '20260609.39';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -739,7 +739,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.38' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.39' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -787,6 +787,12 @@ Module.SDLPAL_playStoryVideo = function(videoId) {
     }
     if (id === 2) {
         return playStoryVideoOnce('xianlingdaoMedicine2', dataUrl('movie/02 仙灵岛求药 2.mp4', BUILD_VERSION));
+    }
+    if (id === 3) {
+        return playStoryVideoOnce('xianlingdaoMedicine3', dataUrl('movie/03 仙灵岛求药 3.mp4', BUILD_VERSION));
+    }
+    if (id === 4) {
+        return playStoryVideoOnce('xianlingdaoMedicine4', dataUrl('movie/04 仙灵岛求药 4.mp4', BUILD_VERSION));
     }
     return Promise.resolve(false);
 };
