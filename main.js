@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.27';
+var BUILD_VERSION = '20260609.28';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -614,7 +614,7 @@ function playStoryVideoOnce(key, src) {
     try { stopDialogVoice(); } catch (e) {}
     try { pauseHtmlBgmForBackground(); } catch (e) {}
 
-    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false, unskippableUntilStarted: true}).then(function() {
+    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false, forceMuted: true, unskippableUntilStarted: true}).then(function() {
         storyVideoPromise = null;
         try { resumeHtmlBgmAfterForeground(); } catch (e) {}
         try { clearGameInput(); } catch (e) {}
@@ -626,14 +626,6 @@ function playStoryVideoOnce(key, src) {
 function playDialogVoice(msgId) {
     var id = Number(msgId) || 0;
     if (!id) return 0;
-
-    // 1885: 李逍遙「謝謝啦。」. At this point the game has just arrived
-    // at Xianling Island shore. Trigger the story video from JS directly;
-    // this path is the same proven path used for dialog voice callbacks.
-    if (id === 1885 && !storyVideosPlayed.xianlingdaoMedicine1) {
-        Module.print('[storyvideo] trigger xianlingdao at dialog 1885');
-        playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('1.mp4', BUILD_VERSION));
-    }
 
     return enqueueDialogVoice(id);
 }
@@ -728,7 +720,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.27' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.28' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -1048,8 +1040,13 @@ function playIntroVideo(src, options) {
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
         video.autoplay = true;
-        video.muted = soundMuted;
-        video.volume = soundMuted ? 0 : 1.0;
+        var forceMuted = !!options.forceMuted;
+        if (forceMuted) {
+            video.defaultMuted = true;
+            video.setAttribute('muted', '');
+        }
+        video.muted = soundMuted || forceMuted;
+        video.volume = (soundMuted || forceMuted) ? 0 : 1.0;
         video.preload = 'auto';
         video.controls = false;
         video.style.width = '100%';
