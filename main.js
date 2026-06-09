@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.39';
+var BUILD_VERSION = '20260609.40';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -93,6 +93,7 @@ var musicMuted = soundMuted;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
 var dialogVoiceAudio = null;
+var dialogVoiceSource = null;
 var dialogVoiceManifestPromise = null;
 var dialogVoiceIds = null;
 var dialogVoiceToken = 0;
@@ -495,6 +496,64 @@ function voiceUrlForMsgId(msgId) {
     return 'data/voice/' + sid.slice(0, 2) + '/' + sid + '.mp3?v=' + encodeURIComponent(BUILD_VERSION);
 }
 
+
+function normalizeDialogVoiceItem(item) {
+    if (Array.isArray(item)) return item.map(function(x) { return Number(x) || 0; }).filter(Boolean);
+    var n = Number(item) || 0;
+    return n ? [n] : [];
+}
+
+function concatAudioBuffers(ctx, buffers) {
+    var valid = buffers.filter(Boolean);
+    if (!valid.length) return null;
+    var sampleRate = valid[0].sampleRate || ctx.sampleRate;
+    var channels = 1;
+    valid.forEach(function(b) { channels = Math.max(channels, b.numberOfChannels || 1); });
+    var total = valid.reduce(function(sum, b) { return sum + b.length; }, 0);
+    var out = ctx.createBuffer(channels, total, sampleRate);
+    var offset = 0;
+    valid.forEach(function(b) {
+        for (var ch = 0; ch < channels; ch++) {
+            var srcCh = Math.min(ch, (b.numberOfChannels || 1) - 1);
+            out.getChannelData(ch).set(b.getChannelData(srcCh), offset);
+        }
+        offset += b.length;
+    });
+    return out;
+}
+
+async function playDialogVoiceBufferList(ids, token) {
+    var ctx = ensureSharedAudioContext();
+    if (!ctx) throw new Error('no audio context');
+    try { if (ctx.state === 'suspended') await ctx.resume(); } catch (e) {}
+    var buffers = await Promise.all(ids.map(async function(id) {
+        var resp = await fetch(voiceUrlForMsgId(id));
+        if (!resp.ok) throw new Error('voice HTTP ' + resp.status + ' for ' + id);
+        var arr = await resp.arrayBuffer();
+        return await ctx.decodeAudioData(arr.slice(0));
+    }));
+    if (token !== dialogVoiceToken || soundMuted || voiceMuted) return;
+    var merged = concatAudioBuffers(ctx, buffers);
+    if (!merged) return;
+    if (dialogVoiceSource) {
+        try { dialogVoiceSource.stop(0); } catch (e) {}
+        try { dialogVoiceSource.disconnect(); } catch (e) {}
+        dialogVoiceSource = null;
+    }
+    var src = ctx.createBufferSource();
+    src.buffer = merged;
+    src.connect(ctx.destination);
+    dialogVoiceSource = src;
+    src.onended = function() {
+        if (token !== dialogVoiceToken) return;
+        dialogVoiceSource = null;
+        dialogVoicePlaying = false;
+        drainDialogVoiceQueue();
+    };
+    setDialogVoiceDucking(true);
+    src.start(0);
+}
+
 function ensureDialogVoiceAudio() {
     if (!dialogVoiceAudio) {
         dialogVoiceAudio = document.createElement('audio');
@@ -551,26 +610,41 @@ function drainDialogVoiceQueue() {
         setDialogVoiceDucking(false);
         return;
     }
-    var id = dialogVoiceQueue.shift();
-    if (!id) {
+    var item = dialogVoiceQueue.shift();
+    var requestedIds = normalizeDialogVoiceItem(item);
+    if (!requestedIds.length) {
         setDialogVoiceDucking(false);
         return;
     }
 
     dialogVoicePlaying = true;
     var token = dialogVoiceToken;
-    loadDialogVoiceManifest().then(function(ids) {
+    loadDialogVoiceManifest().then(function(availableIds) {
         if (token !== dialogVoiceToken || soundMuted || voiceMuted) {
             dialogVoicePlaying = false;
             dialogVoiceQueue = [];
             setDialogVoiceDucking(false);
             return;
         }
-        if (!ids[String(id)]) {
+        var playableIds = requestedIds.filter(function(id) { return !!availableIds[String(id)]; });
+        if (!playableIds.length) {
             dialogVoicePlaying = false;
             drainDialogVoiceQueue();
             return;
         }
+        if (playableIds.length > 1) {
+            Module.print('[voice] dialog block ' + playableIds.join(','));
+            playDialogVoiceBufferList(playableIds, token).catch(function(e) {
+                if (token === dialogVoiceToken) {
+                    Module.printErr('[voice] block play failed ' + playableIds.join(',') + ': ' + (e && e.message ? e.message : e));
+                    dialogVoicePlaying = false;
+                    playableIds.reverse().forEach(function(id) { dialogVoiceQueue.unshift(id); });
+                    drainDialogVoiceQueue();
+                }
+            });
+            return;
+        }
+        var id = playableIds[0];
         var a = ensureDialogVoiceAudio();
         try { a.pause(); } catch (e) {}
         a.src = voiceUrlForMsgId(id);
@@ -599,9 +673,9 @@ function drainDialogVoiceQueue() {
     });
 }
 
-function enqueueDialogVoice(id) {
+function enqueueDialogVoice(item) {
     if (soundMuted || voiceMuted) return 0;
-    dialogVoiceQueue.push(id);
+    dialogVoiceQueue.push(item);
     drainDialogVoiceQueue();
     return 1;
 }
@@ -649,10 +723,23 @@ function playDialogVoice(msgId, faceId) {
     return enqueueDialogVoice(id);
 }
 
+function playDialogVoiceBlock(msgIds, faceId) {
+    var face = Number(faceId) || 0;
+    var ids = String(msgIds || '').split(',').map(function(x) { return Number(x) || 0; }).filter(Boolean);
+    if (!ids.length) return 0;
+    if (face) Module.print('[voice] dialog block face ' + face + ' msgs ' + ids.join(','));
+    return enqueueDialogVoice(ids);
+}
+
 function stopDialogVoice() {
     dialogVoiceToken++;
     dialogVoiceQueue = [];
     dialogVoicePlaying = false;
+    if (dialogVoiceSource) {
+        try { dialogVoiceSource.stop(0); } catch (e) {}
+        try { dialogVoiceSource.disconnect(); } catch (e) {}
+        dialogVoiceSource = null;
+    }
     if (dialogVoiceAudio) {
         try { dialogVoiceAudio.pause(); } catch (e) {}
         try { dialogVoiceAudio.currentTime = 0; } catch (e) {}
@@ -739,7 +826,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.39' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.40' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -779,6 +866,7 @@ var Module = {
     onRuntimeInitialized:function() { onRuntimeInitialized(); }
 };
 Module.SDLPAL_playDialogVoice = playDialogVoice;
+Module.SDLPAL_playDialogVoiceBlock = playDialogVoiceBlock;
 Module.SDLPAL_stopDialogVoice = stopDialogVoice;
 Module.SDLPAL_playStoryVideo = function(videoId) {
     var id = Number(videoId) || 0;
