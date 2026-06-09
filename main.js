@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.46';
+var BUILD_VERSION = '20260609.47';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -826,7 +826,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.46' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.47' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
