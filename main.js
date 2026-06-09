@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.7';
+var BUILD_VERSION = '20260609.8';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -65,6 +65,7 @@ var gameSpeedElement = document.getElementById('gameSpeed');
 var gameSpeedValueElement = document.getElementById('gameSpeedValue');
 var musicToggleElement = document.getElementById('btnToggleMusic');
 var soundToggleElement = document.getElementById('btnToggleSound');
+var voiceToggleElement = document.getElementById('btnToggleVoice');
 var installPromise = null;
 var gameStarted = false;
 var audioUnlocked = false;
@@ -82,6 +83,7 @@ var jsBgmTrack = 0;
 var jsBgmToken = 0;
 var jsBgmBuffers = {};
 var soundMuted = localStorage.getItem('sdlpal_sound_muted') === '1';
+var voiceMuted = localStorage.getItem('sdlpal_voice_muted') === '1';
 var musicMuted = soundMuted;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
@@ -244,8 +246,21 @@ function updateAudioToggleButtons() {
         soundToggleElement.title = soundMuted ? '啟用聲音' : '禁用聲音';
         soundToggleElement.setAttribute('aria-label', soundToggleElement.title);
     }
+    if (voiceToggleElement) {
+        voiceToggleElement.classList.toggle('off', voiceMuted || soundMuted);
+        voiceToggleElement.textContent = voiceMuted || soundMuted ? '🗨️' : '🗣️';
+        voiceToggleElement.title = voiceMuted ? '啟用語音' : '禁用語音';
+        voiceToggleElement.setAttribute('aria-label', voiceToggleElement.title);
+    }
 }
 
+
+function toggleVoiceMute() {
+    voiceMuted = !voiceMuted;
+    localStorage.setItem('sdlpal_voice_muted', voiceMuted ? '1' : '0');
+    updateAudioToggleButtons();
+    if (voiceMuted) stopDialogVoice();
+}
 
 function toggleMusicMute() {
     musicMuted = !musicMuted;
@@ -470,11 +485,11 @@ function loadDialogVoiceManifest() {
 }
 
 function playDialogVoice(msgId) {
-    if (soundMuted) return 0;
+    if (soundMuted || voiceMuted) return 0;
     var id = Number(msgId) || 0;
     var token = ++dialogVoiceToken;
     loadDialogVoiceManifest().then(function(ids) {
-        if (token !== dialogVoiceToken || !ids[String(id)] || soundMuted) return;
+        if (token !== dialogVoiceToken || !ids[String(id)] || soundMuted || voiceMuted) return;
         var a = ensureDialogVoiceAudio();
         try { a.pause(); } catch (e) {}
         a.src = voiceUrlForMsgId(id);
@@ -581,7 +596,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.7' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.8' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
