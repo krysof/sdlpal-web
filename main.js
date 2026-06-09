@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.15';
+var BUILD_VERSION = '20260609.16';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -96,6 +96,8 @@ var dialogVoiceAudio = null;
 var dialogVoiceManifestPromise = null;
 var dialogVoiceIds = null;
 var dialogVoiceToken = 0;
+var dialogVoiceQueue = [];
+var dialogVoicePlaying = false;
 
 function clampExpMultiplier(value) {
     var n = parseInt(value, 10);
@@ -539,12 +541,33 @@ function loadDialogVoiceManifest() {
     return dialogVoiceManifestPromise;
 }
 
-function playDialogVoice(msgId) {
-    if (soundMuted || voiceMuted) return 0;
-    var id = Number(msgId) || 0;
-    var token = ++dialogVoiceToken;
+function drainDialogVoiceQueue() {
+    if (dialogVoicePlaying) return;
+    if (soundMuted || voiceMuted) {
+        dialogVoiceQueue = [];
+        setDialogVoiceDucking(false);
+        return;
+    }
+    var id = dialogVoiceQueue.shift();
+    if (!id) {
+        setDialogVoiceDucking(false);
+        return;
+    }
+
+    dialogVoicePlaying = true;
+    var token = dialogVoiceToken;
     loadDialogVoiceManifest().then(function(ids) {
-        if (token !== dialogVoiceToken || !ids[String(id)] || soundMuted || voiceMuted) return;
+        if (token !== dialogVoiceToken || soundMuted || voiceMuted) {
+            dialogVoicePlaying = false;
+            dialogVoiceQueue = [];
+            setDialogVoiceDucking(false);
+            return;
+        }
+        if (!ids[String(id)]) {
+            dialogVoicePlaying = false;
+            drainDialogVoiceQueue();
+            return;
+        }
         var a = ensureDialogVoiceAudio();
         try { a.pause(); } catch (e) {}
         a.src = voiceUrlForMsgId(id);
@@ -552,19 +575,40 @@ function playDialogVoice(msgId) {
         a.muted = false;
         a.volume = 1.0;
         setDialogVoiceDucking(true);
-        a.onended = function() { if (token === dialogVoiceToken) setDialogVoiceDucking(false); };
-        a.onerror = function() { if (token === dialogVoiceToken) setDialogVoiceDucking(false); };
+        a.onended = function() {
+            if (token !== dialogVoiceToken) return;
+            dialogVoicePlaying = false;
+            drainDialogVoiceQueue();
+        };
+        a.onerror = function() {
+            if (token !== dialogVoiceToken) return;
+            dialogVoicePlaying = false;
+            drainDialogVoiceQueue();
+        };
         var p = a.play();
         if (p && p.catch) p.catch(function(e) {
-            if (token === dialogVoiceToken) setDialogVoiceDucking(false);
-            Module.printErr('[voice] play failed ' + id + ': ' + (e && e.message ? e.message : e));
+            if (token === dialogVoiceToken) {
+                Module.printErr('[voice] play failed ' + id + ': ' + (e && e.message ? e.message : e));
+                dialogVoicePlaying = false;
+                drainDialogVoiceQueue();
+            }
         });
     });
+}
+
+function playDialogVoice(msgId) {
+    if (soundMuted || voiceMuted) return 0;
+    var id = Number(msgId) || 0;
+    if (!id) return 0;
+    dialogVoiceQueue.push(id);
+    drainDialogVoiceQueue();
     return 1;
 }
 
 function stopDialogVoice() {
     dialogVoiceToken++;
+    dialogVoiceQueue = [];
+    dialogVoicePlaying = false;
     if (dialogVoiceAudio) {
         try { dialogVoiceAudio.pause(); } catch (e) {}
         try { dialogVoiceAudio.currentTime = 0; } catch (e) {}
@@ -651,7 +695,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.15' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.16' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
