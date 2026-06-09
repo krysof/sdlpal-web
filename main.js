@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.34';
+var BUILD_VERSION = '20260609.35';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -737,7 +737,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.34' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.35' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -781,7 +781,10 @@ Module.SDLPAL_stopDialogVoice = stopDialogVoice;
 Module.SDLPAL_playStoryVideo = function(videoId) {
     var id = Number(videoId) || 0;
     if (id === 1) {
-        return playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('1.mp4', BUILD_VERSION));
+        return playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('movie/01 仙灵岛求药 1.mp4', BUILD_VERSION));
+    }
+    if (id === 2) {
+        return playStoryVideoOnce('xianlingdaoMedicine2', dataUrl('movie/02 仙灵岛求药 2.mp4', BUILD_VERSION));
     }
     return Promise.resolve(false);
 };
@@ -1187,7 +1190,7 @@ async function playIntroSequence() {
      * Play MP4 intros before entering wasm.  This avoids blocking C with
      * Asyncify while SDL browser callbacks are active.
      */
-    await playIntroVideo(dataUrl('2.mp4', BUILD_VERSION));
+    await playIntroVideo(dataUrl('movie/00 Title.mp4', BUILD_VERSION));
 }
 
 
