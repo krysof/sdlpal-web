@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.25';
+var BUILD_VERSION = '20260609.27';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -609,10 +609,15 @@ function playStoryVideoOnce(key, src) {
     if (storyVideosPlayed[key]) return Promise.resolve(false);
     storyVideosPlayed[key] = true;
     if (storyVideoPromise) return storyVideoPromise;
+
+    Module.print('[storyvideo] force play ' + key + ' ' + src);
+    try { stopDialogVoice(); } catch (e) {}
     try { pauseHtmlBgmForBackground(); } catch (e) {}
-    storyVideoPromise = playIntroVideo(src).then(function() {
+
+    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false, unskippableUntilStarted: true}).then(function() {
         storyVideoPromise = null;
         try { resumeHtmlBgmAfterForeground(); } catch (e) {}
+        try { clearGameInput(); } catch (e) {}
         return true;
     });
     return storyVideoPromise;
@@ -621,6 +626,15 @@ function playStoryVideoOnce(key, src) {
 function playDialogVoice(msgId) {
     var id = Number(msgId) || 0;
     if (!id) return 0;
+
+    // 1885: 李逍遙「謝謝啦。」. At this point the game has just arrived
+    // at Xianling Island shore. Trigger the story video from JS directly;
+    // this path is the same proven path used for dialog voice callbacks.
+    if (id === 1885 && !storyVideosPlayed.xianlingdaoMedicine1) {
+        Module.print('[storyvideo] trigger xianlingdao at dialog 1885');
+        playStoryVideoOnce('xianlingdaoMedicine1', dataUrl('1.mp4', BUILD_VERSION));
+    }
+
     return enqueueDialogVoice(id);
 }
 
@@ -714,7 +728,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.25' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.27' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -1000,7 +1014,8 @@ async function runGame() {
     }
 }
 
-function playIntroVideo(src) {
+function playIntroVideo(src, options) {
+    options = options || {};
     return new Promise(function(resolve) {
         var canvas = Module.canvas || document.getElementById('canvas');
         var wrap = document.createElement('div');
@@ -1009,7 +1024,7 @@ function playIntroVideo(src) {
         wrap.style.display = 'flex';
         wrap.style.alignItems = 'center';
         wrap.style.justifyContent = 'center';
-        wrap.style.zIndex = '999';
+        wrap.style.zIndex = options.zIndex || '99999';
         wrap.style.overflow = 'hidden';
 
         function updateBounds() {
@@ -1078,7 +1093,7 @@ function playIntroVideo(src) {
             if (p && p.catch) p.catch(function(e) {
                 needsTapToPlay = true;
                 tapPrompt.style.display = 'block';
-                Module.printErr('Intro autoplay failed, waiting for tap: ' + src + ' / ' + (e && e.message ? e.message : e));
+                Module.printErr('Video autoplay failed, waiting for tap: ' + src + ' / ' + (e && e.message ? e.message : e));
             });
         }
 
@@ -1090,6 +1105,9 @@ function playIntroVideo(src) {
             }
             if (needsTapToPlay) {
                 tryStartVideo();
+                return;
+            }
+            if (options.unskippableUntilStarted) {
                 return;
             }
             introInputBlockUntil = Date.now() + 900;
