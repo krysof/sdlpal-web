@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.29';
+var BUILD_VERSION = '20260609.30';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -100,7 +100,7 @@ var dialogVoiceQueue = [];
 var dialogVoicePlaying = false;
 var storyVideosPlayed = {};
 var storyVideoPromise = null;
-var storyVideoElement = null;
+var sharedCutsceneVideoElement = null;
 
 function clampExpMultiplier(value) {
     var n = parseInt(value, 10);
@@ -606,59 +606,20 @@ function enqueueDialogVoice(id) {
     return 1;
 }
 
-function ensureStoryVideoElement(src) {
-    if (!storyVideoElement) {
-        storyVideoElement = document.createElement('video');
-        storyVideoElement.playsInline = true;
-        storyVideoElement.setAttribute('playsinline', '');
-        storyVideoElement.setAttribute('webkit-playsinline', '');
-        storyVideoElement.preload = 'auto';
-        storyVideoElement.controls = false;
+function ensureCutsceneVideoElement(src) {
+    if (!sharedCutsceneVideoElement) {
+        sharedCutsceneVideoElement = document.createElement('video');
+        sharedCutsceneVideoElement.playsInline = true;
+        sharedCutsceneVideoElement.setAttribute('playsinline', '');
+        sharedCutsceneVideoElement.setAttribute('webkit-playsinline', '');
+        sharedCutsceneVideoElement.preload = 'auto';
+        sharedCutsceneVideoElement.controls = false;
     }
-    if (storyVideoElement.src !== src) storyVideoElement.src = src;
-    return storyVideoElement;
-}
-
-function primeStoryVideoAudio(src) {
-    if (soundMuted) return;
-    var v = ensureStoryVideoElement(src);
-    v.muted = false;
-    v.defaultMuted = false;
-    v.removeAttribute('muted');
-    v.volume = 0.001;
-    v.style.position = 'fixed';
-    v.style.left = '-4px';
-    v.style.top = '-4px';
-    v.style.width = '1px';
-    v.style.height = '1px';
-    v.style.opacity = '0';
-    v.style.pointerEvents = 'none';
-    if (!v.parentNode) document.body.appendChild(v);
-    try {
-        var p = v.play();
-        if (p && p.then) {
-            p.then(function() {
-                window.setTimeout(function() {
-                    try { v.pause(); } catch (e) {}
-                    try { v.currentTime = 0; } catch (e) {}
-                    v.volume = 1.0;
-                    Module.print('[storyvideo] audio primed');
-                }, 80);
-            }).catch(function(e) {
-                Module.printErr('[storyvideo] audio prime failed: ' + (e && e.message ? e.message : e));
-                v.volume = 1.0;
-            });
-        } else {
-            window.setTimeout(function() {
-                try { v.pause(); } catch (e) {}
-                try { v.currentTime = 0; } catch (e) {}
-                v.volume = 1.0;
-            }, 80);
-        }
-    } catch (e) {
-        Module.printErr('[storyvideo] audio prime failed: ' + (e && e.message ? e.message : e));
-        v.volume = 1.0;
+    if (src && sharedCutsceneVideoElement.getAttribute('data-src') !== src) {
+        sharedCutsceneVideoElement.src = src;
+        sharedCutsceneVideoElement.setAttribute('data-src', src);
     }
+    return sharedCutsceneVideoElement;
 }
 
 function playStoryVideoOnce(key, src) {
@@ -670,7 +631,7 @@ function playStoryVideoOnce(key, src) {
     try { stopDialogVoice(); } catch (e) {}
     try { pauseHtmlBgmForBackground(); } catch (e) {}
 
-    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false, videoElement: ensureStoryVideoElement(src), keepVideoElement: true, unskippableUntilStarted: true}).then(function() {
+    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false, unskippableUntilStarted: true}).then(function() {
         storyVideoPromise = null;
         try { resumeHtmlBgmAfterForeground(); } catch (e) {}
         try { clearGameInput(); } catch (e) {}
@@ -776,7 +737,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.29' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.30' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -1090,9 +1051,13 @@ function playIntroVideo(src, options) {
             }
         }
 
-        var video = options.videoElement || document.createElement('video');
+        var useSharedVideoElement = !options.videoElement;
+        var video = options.videoElement || ensureCutsceneVideoElement(src);
         if (video.parentNode) video.parentNode.removeChild(video);
-        video.src = src;
+        if (video.getAttribute('data-src') !== src) {
+            video.src = src;
+            video.setAttribute('data-src', src);
+        }
         video.playsInline = true;
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
@@ -1146,7 +1111,7 @@ function playIntroVideo(src, options) {
             video.removeEventListener('ended', cleanup);
             video.removeEventListener('error', onVideoError);
             if (currentIntroVideo === video) currentIntroVideo = null;
-            if (options.keepVideoElement) {
+            if (options.keepVideoElement || useSharedVideoElement) {
                 try { video.pause(); } catch (e) {}
                 video.style.position = 'fixed';
                 video.style.left = '-4px';
@@ -1453,7 +1418,6 @@ async function launch() {
     if (deleteButton) deleteButton.style.display = 'none';
     hideLoadingScreen();
     unlockAudioForIOS();
-    primeStoryVideoAudio(dataUrl('1.mp4', BUILD_VERSION));
     if (isIOSAudioDevice()) {
         /*
          * Create/unlock one shared AudioContext in the Start tap, then let the
