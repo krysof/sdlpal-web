@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.33';
+var BUILD_VERSION = '20260609.34';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -737,7 +737,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.33' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.34' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
@@ -1057,6 +1057,7 @@ function playIntroVideo(src, options) {
         if (video.getAttribute('data-src') !== src) {
             video.src = src;
             video.setAttribute('data-src', src);
+            try { video.load(); } catch (e) {}
         }
         video.playsInline = true;
         video.setAttribute('playsinline', '');
@@ -1074,9 +1075,12 @@ function playIntroVideo(src, options) {
         video.volume = (soundMuted || forceMuted) ? 0 : 1.0;
         video.preload = 'auto';
         video.controls = false;
+        video.style.display = 'block';
+        video.style.visibility = 'visible';
         video.style.position = 'static';
         video.style.left = 'auto';
         video.style.top = 'auto';
+        video.style.transform = 'none';
         video.style.opacity = '1';
         video.style.pointerEvents = 'auto';
         video.style.width = '100%';
@@ -1134,6 +1138,8 @@ function playIntroVideo(src, options) {
         function tryStartVideo() {
             needsTapToPlay = false;
             tapPrompt.style.display = 'none';
+            try { if (video.currentTime > 0.05 || video.ended) video.currentTime = 0; } catch (e) {}
+            try { video.style.visibility = 'visible'; video.style.opacity = '1'; video.style.display = 'block'; } catch (e) {}
             var p = video.play();
             if (p && p.catch) p.catch(function(e) {
                 needsTapToPlay = true;
