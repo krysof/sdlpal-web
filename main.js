@@ -1,9 +1,22 @@
-var BUILD_VERSION = '20260609.52';
+var BUILD_VERSION = '20260609.53';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
+function forceMediaTitle() {
+    try {
+        if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined') {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: APP_TITLE,
+                artist: '真·仙剑奇侠传',
+                album: 'Web Edition',
+                artwork: [{ src: 'icon.png', sizes: '512x512', type: 'image/png' }]
+            });
+        }
+    } catch (e) {}
+}
 function forceDocumentTitle() {
     try {
         document.title = APP_TITLE;
     } catch (e) {}
+    forceMediaTitle();
 }
 window.SDLPAL_forceTitle = forceDocumentTitle;
 forceDocumentTitle();
@@ -698,6 +711,9 @@ function ensureCutsceneVideoElement(src) {
         sharedCutsceneVideoElement.playsInline = true;
         sharedCutsceneVideoElement.setAttribute('playsinline', '');
         sharedCutsceneVideoElement.setAttribute('webkit-playsinline', '');
+        sharedCutsceneVideoElement.title = APP_TITLE;
+        sharedCutsceneVideoElement.setAttribute('aria-label', APP_TITLE);
+        sharedCutsceneVideoElement.setAttribute('x-webkit-airplay', 'deny');
         sharedCutsceneVideoElement.preload = 'auto';
         sharedCutsceneVideoElement.controls = false;
     }
@@ -1180,6 +1196,11 @@ function playIntroVideo(src, options) {
         video.playsInline = true;
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
+        video.title = APP_TITLE;
+        video.setAttribute('aria-label', APP_TITLE);
+        video.setAttribute('x-webkit-airplay', 'deny');
+        forceDocumentTitle();
+        forceMediaTitle();
         video.autoplay = true;
         var forceMuted = !!options.forceMuted;
         if (forceMuted) {
