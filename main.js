@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.53';
+var BUILD_VERSION = '20260609.54';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -91,6 +91,7 @@ var gameSpeedValueElement = document.getElementById('gameSpeedValue');
 var musicToggleElement = document.getElementById('btnToggleMusic');
 var soundToggleElement = document.getElementById('btnToggleSound');
 var voiceToggleElement = document.getElementById('btnToggleVoice');
+var sceneInfoToggleElement = document.getElementById('btnToggleSceneInfo');
 var installPromise = null;
 var gameStarted = false;
 var audioUnlocked = false;
@@ -115,6 +116,8 @@ var jsBgmBuffers = {};
 var soundMuted = localStorage.getItem('sdlpal_sound_muted') === '1';
 var voiceMuted = localStorage.getItem('sdlpal_voice_muted') === '1';
 var musicMuted = soundMuted;
+var sceneInfoVisible = localStorage.getItem('sdlpal_scene_info_visible') === '1';
+window.SDLPAL_showSceneDebug = sceneInfoVisible;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
 var dialogVoiceAudio = null;
@@ -290,6 +293,22 @@ function updateAudioToggleButtons() {
     }
 }
 
+function updateSceneInfoToggleButton() {
+    window.SDLPAL_showSceneDebug = !!sceneInfoVisible;
+    if (sceneInfoToggleElement) {
+        sceneInfoToggleElement.classList.toggle('off', !sceneInfoVisible);
+        sceneInfoToggleElement.title = sceneInfoVisible ? '隱藏場景資訊' : '顯示場景資訊';
+        sceneInfoToggleElement.setAttribute('aria-label', sceneInfoToggleElement.title);
+    }
+}
+
+function toggleSceneInfo() {
+    sceneInfoVisible = !sceneInfoVisible;
+    window.SDLPAL_showSceneDebug = sceneInfoVisible;
+    localStorage.setItem('sdlpal_scene_info_visible', sceneInfoVisible ? '1' : '0');
+    updateSceneInfoToggleButton();
+}
+
 
 function toggleVoiceMute() {
     voiceMuted = !voiceMuted;
@@ -335,6 +354,7 @@ function toggleSoundMute() {
 
 
 updateAudioToggleButtons();
+updateSceneInfoToggleButton();
 
 function bgmUrlForTrack(track) {
     return 'data/bgm/' + String(track).padStart(3, '0') + '.m4a?v=' + encodeURIComponent(BUILD_VERSION);
@@ -858,7 +878,7 @@ var Module = {
         forceDocumentTitle();
     },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.50' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=' + encodeURIComponent(BUILD_VERSION) : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
