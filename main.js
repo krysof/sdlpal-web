@@ -1,11 +1,16 @@
-var BUILD_VERSION = '20260609.49';
+var BUILD_VERSION = '20260609.50';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceDocumentTitle() {
     try {
         document.title = APP_TITLE;
     } catch (e) {}
 }
+window.SDLPAL_forceTitle = forceDocumentTitle;
 forceDocumentTitle();
+window.setInterval(forceDocumentTitle, 1000);
+['visibilitychange', 'pageshow', 'focus', 'load'].forEach(function(type) {
+    window.addEventListener(type, forceDocumentTitle, true);
+});
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -837,7 +842,7 @@ var Module = {
         forceDocumentTitle();
     },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.49' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.50' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
