@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.30';
+var BUILD_VERSION = '20260609.31';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -631,7 +631,7 @@ function playStoryVideoOnce(key, src) {
     try { stopDialogVoice(); } catch (e) {}
     try { pauseHtmlBgmForBackground(); } catch (e) {}
 
-    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false, unskippableUntilStarted: true}).then(function() {
+    storyVideoPromise = playIntroVideo(src, {forceTapPrompt: false}).then(function() {
         storyVideoPromise = null;
         try { resumeHtmlBgmAfterForeground(); } catch (e) {}
         try { clearGameInput(); } catch (e) {}
@@ -737,7 +737,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.30' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.31' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
