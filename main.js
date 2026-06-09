@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.55';
+var BUILD_VERSION = '20260609.57';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -157,6 +157,10 @@ function nowForBattleTiming() {
 
 window.SDLPAL_markBattleTimingPress = function() {
     window.SDLPAL_battleTimingPressAt = nowForBattleTiming();
+};
+
+window.SDLPAL_clearBattleTimingPress = function() {
+    window.SDLPAL_battleTimingPressAt = 0;
 };
 
 window.SDLPAL_consumeBattleTimingPress = function(windowMs) {
