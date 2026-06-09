@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.54';
+var BUILD_VERSION = '20260609.55';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -149,6 +149,38 @@ var expMultiplier = clampExpMultiplier(localStorage.getItem('sdlpal_exp_multipli
 var gameSpeedMultiplier = clampGameSpeedMultiplier(localStorage.getItem('sdlpal_game_speed_multiplier') || '1');
 window.SDLPAL_expMultiplier = expMultiplier;
 window.SDLPAL_gameSpeedMultiplier = gameSpeedMultiplier;
+window.SDLPAL_battleTimingPressAt = 0;
+
+function nowForBattleTiming() {
+    try { return performance.now(); } catch (e) { return Date.now(); }
+}
+
+window.SDLPAL_markBattleTimingPress = function() {
+    window.SDLPAL_battleTimingPressAt = nowForBattleTiming();
+};
+
+window.SDLPAL_consumeBattleTimingPress = function(windowMs) {
+    var now = nowForBattleTiming();
+    var t = Number(window.SDLPAL_battleTimingPressAt || 0);
+    var ms = Number(windowMs || 240);
+    if (t > 0 && now >= t && now - t <= ms) {
+        window.SDLPAL_battleTimingPressAt = 0;
+        return 1;
+    }
+    return 0;
+};
+
+function markBattleTimingFromEvent(e) {
+    if (!gameStarted) return;
+    if (e && e.type === 'keydown') {
+        if (e.key !== ' ' && e.code !== 'Space' && e.keyCode !== 32) return;
+    }
+    window.SDLPAL_markBattleTimingPress();
+}
+
+['keydown', 'pointerdown', 'touchstart'].forEach(function(type) {
+    window.addEventListener(type, markBattleTimingFromEvent, {capture: true, passive: true});
+});
 
 function updateMultiplierLabels() {
     if (expMultiplierElement) expMultiplierElement.value = String(expMultiplier);
