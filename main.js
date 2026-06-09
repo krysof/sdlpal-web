@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.35';
+var BUILD_VERSION = '20260609.38';
 var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
@@ -640,9 +640,11 @@ function playStoryVideoOnce(key, src) {
     return storyVideoPromise;
 }
 
-function playDialogVoice(msgId) {
+function playDialogVoice(msgId, faceId) {
     var id = Number(msgId) || 0;
+    var face = Number(faceId) || 0;
     if (!id) return 0;
+    if (face) Module.print('[voice] dialog msg ' + id + ' face ' + face);
 
     return enqueueDialogVoice(id);
 }
@@ -737,7 +739,7 @@ var Module = {
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
     locateFile: function(path) {
-        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.35' : path;
+        return path === 'sdlpal.wasm' ? 'sdlpal.wasm?v=20260609.38' : path;
     },
     canvas: (function() {
         var canvas = document.getElementById('canvas');
