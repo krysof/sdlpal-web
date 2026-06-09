@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.68';
+var BUILD_VERSION = '20260609.69';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -86,6 +86,8 @@ var loadingElement = document.getElementById('loadingScreen');
 var startButtonElement = document.getElementById('btnStartGame');
 var expMultiplierElement = document.getElementById('expMultiplier');
 var expMultiplierValueElement = document.getElementById('expMultiplierValue');
+var cashMultiplierElement = document.getElementById('cashMultiplier');
+var cashMultiplierValueElement = document.getElementById('cashMultiplierValue');
 var gameSpeedElement = document.getElementById('gameSpeed');
 var gameSpeedValueElement = document.getElementById('gameSpeedValue');
 var musicToggleElement = document.getElementById('btnToggleMusic');
@@ -138,6 +140,13 @@ function clampExpMultiplier(value) {
     return n;
 }
 
+function clampCashMultiplier(value) {
+    var n = parseInt(value, 10);
+    if (!isFinite(n) || n < 1) n = 1;
+    if (n > 100) n = 100;
+    return n;
+}
+
 function clampGameSpeedMultiplier(value) {
     var n = parseInt(value, 10);
     if (!isFinite(n) || n < 1) n = 1;
@@ -146,8 +155,10 @@ function clampGameSpeedMultiplier(value) {
 }
 
 var expMultiplier = clampExpMultiplier(localStorage.getItem('sdlpal_exp_multiplier') || '5');
+var cashMultiplier = clampCashMultiplier(localStorage.getItem('sdlpal_cash_multiplier') || '5');
 var gameSpeedMultiplier = clampGameSpeedMultiplier(localStorage.getItem('sdlpal_game_speed_multiplier') || '1');
 window.SDLPAL_expMultiplier = expMultiplier;
+window.SDLPAL_cashMultiplier = cashMultiplier;
 window.SDLPAL_gameSpeedMultiplier = gameSpeedMultiplier;
 window.SDLPAL_battleTimingPressAt = 0;
 
@@ -189,6 +200,8 @@ function markBattleTimingFromEvent(e) {
 function updateMultiplierLabels() {
     if (expMultiplierElement) expMultiplierElement.value = String(expMultiplier);
     if (expMultiplierValueElement) expMultiplierValueElement.textContent = String(expMultiplier);
+    if (cashMultiplierElement) cashMultiplierElement.value = String(cashMultiplier);
+    if (cashMultiplierValueElement) cashMultiplierValueElement.textContent = String(cashMultiplier);
     if (gameSpeedElement) gameSpeedElement.value = String(gameSpeedMultiplier);
     if (gameSpeedValueElement) gameSpeedValueElement.textContent = String(gameSpeedMultiplier);
 }
@@ -197,6 +210,13 @@ function setExpMultiplier(value) {
     expMultiplier = clampExpMultiplier(value);
     window.SDLPAL_expMultiplier = expMultiplier;
     localStorage.setItem('sdlpal_exp_multiplier', String(expMultiplier));
+    updateMultiplierLabels();
+}
+
+function setCashMultiplier(value) {
+    cashMultiplier = clampCashMultiplier(value);
+    window.SDLPAL_cashMultiplier = cashMultiplier;
+    localStorage.setItem('sdlpal_cash_multiplier', String(cashMultiplier));
     updateMultiplierLabels();
 }
 
@@ -210,6 +230,10 @@ function setGameSpeedMultiplier(value) {
 if (expMultiplierElement) {
     expMultiplierElement.addEventListener('change', function() { setExpMultiplier(expMultiplierElement.value); });
     expMultiplierElement.addEventListener('input', function() { setExpMultiplier(expMultiplierElement.value); });
+}
+if (cashMultiplierElement) {
+    cashMultiplierElement.addEventListener('change', function() { setCashMultiplier(cashMultiplierElement.value); });
+    cashMultiplierElement.addEventListener('input', function() { setCashMultiplier(cashMultiplierElement.value); });
 }
 if (gameSpeedElement) {
     gameSpeedElement.addEventListener('change', function() { setGameSpeedMultiplier(gameSpeedElement.value); });
@@ -1598,6 +1622,7 @@ function playOpeningMenuMusic() {
 
 async function launch() {
     if (expMultiplierElement) setExpMultiplier(expMultiplierElement.value);
+    if (cashMultiplierElement) setCashMultiplier(cashMultiplierElement.value);
     if (gameSpeedElement) setGameSpeedMultiplier(gameSpeedElement.value);
     var checkFile = false;
     try {
