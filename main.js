@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260609.73';
+var BUILD_VERSION = '20260609.74';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -118,8 +118,11 @@ var jsBgmBuffers = {};
 var soundMuted = localStorage.getItem('sdlpal_sound_muted') === '1';
 var voiceMuted = localStorage.getItem('sdlpal_voice_muted') === '1';
 var musicMuted = soundMuted;
-var sceneInfoVisible = localStorage.getItem('sdlpal_scene_info_visible') === '1';
-window.SDLPAL_showSceneDebug = sceneInfoVisible;
+// Scene coordinate overlay is a temporary debug view. Always start hidden;
+// older builds may have persisted it in localStorage, so clear that stale state.
+try { localStorage.removeItem('sdlpal_scene_info_visible'); } catch (e) {}
+var sceneInfoVisible = false;
+window.SDLPAL_showSceneDebug = false;
 var introInputBlockUntil = 0;
 var clearKeyStateFunc = null;
 var dialogVoiceAudio = null;
@@ -391,7 +394,7 @@ function updateSceneInfoToggleButton() {
 function toggleSceneInfo() {
     sceneInfoVisible = !sceneInfoVisible;
     window.SDLPAL_showSceneDebug = sceneInfoVisible;
-    localStorage.setItem('sdlpal_scene_info_visible', sceneInfoVisible ? '1' : '0');
+    try { localStorage.removeItem('sdlpal_scene_info_visible'); } catch (e) {}
     updateSceneInfoToggleButton();
 }
 
