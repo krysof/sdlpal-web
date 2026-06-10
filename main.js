@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.17';
+var BUILD_VERSION = '20260610.18';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1593,11 +1593,13 @@ function getSaveExportEntries() {
             var slot = parseInt(m[1], 10);
             if (!slot) return;
             var path = '/data/' + element;
+            var times = readSaveTimesFromRpg(path);
+            if (times <= 0) return;
             entries.push({
                 slot: slot,
                 name: element,
                 path: path,
-                times: readSaveTimesFromRpg(path),
+                times: times,
                 timeText: formatSaveMtime(path)
             });
         });
@@ -1755,32 +1757,85 @@ function downloadSaves() {
     document.body.appendChild(overlay);
 }
 
+function saveImportTargetName(name) {
+    name = String(name || '').split('/').pop().toLowerCase();
+    var m = name.match(/^(\d+)\.(rpg|prg|bmp)$/i);
+    if (!m) return '';
+    var slot = parseInt(m[1], 10);
+    if (!slot || slot < 1 || slot > 100) return '';
+    return String(slot) + '.' + (m[2].toLowerCase() === 'prg' ? 'rpg' : m[2].toLowerCase());
+}
+
+function saveFileExists(name) {
+    try { FS.stat('/data/' + name); return true; } catch (e) { return false; }
+}
+
+function confirmOverwriteSaves(names) {
+    var conflicts = names.filter(saveFileExists);
+    if (!conflicts.length) return true;
+    conflicts.sort(function(a, b) {
+        return (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || a.localeCompare(b);
+    });
+    var shown = conflicts.slice(0, 18).join(', ');
+    if (conflicts.length > 18) shown += ' ...';
+    return window.confirm('將覆蓋已有記錄：\n' + shown + '\n\n是否繼續？');
+}
+
+function importSaveFileEntries(entries) {
+    var names = entries.map(function(e) { return e.name; });
+    if (!confirmOverwriteSaves(names)) {
+        spinnerElement.style.display = 'none';
+        Module.setStatus('已取消上傳記錄');
+        return Promise.resolve();
+    }
+    entries.forEach(function(e) {
+        FS.writeFile('/data/' + e.name, e.data, {encoding: 'binary'});
+    });
+    Module.setStatus(strSyncingFs);
+    return syncfsPromise(false).then(function() {
+        spinnerElement.style.display = 'none';
+        Module.setStatus(strImportDone + ' (' + entries.length + ')');
+    });
+}
+
 function uploadSaves(file) {
     if (!file) return;
     Module.setStatus(strLoading + ' ' + file.name + '...');
     spinnerElement.style.display = 'inline-block';
     clearErrorDetails();
 
+    var directName = saveImportTargetName(file.name);
+    var lowerName = String(file.name || '').toLowerCase();
+    if (directName && /\.(rpg|prg)$/i.test(lowerName)) {
+        file.arrayBuffer().then(function(buf) {
+            return importSaveFileEntries([{name: directName, data: new Uint8Array(buf)}]);
+        }).catch(function(e) {
+            Module.printErr(e && e.stack ? e.stack : e);
+            showErrorDetails(e, '上傳記錄失敗：');
+            Module.setStatus('上傳記錄失敗');
+            spinnerElement.style.display = 'none';
+        });
+        return;
+    }
+
     var zip = new JSZip();
     zip.loadAsync(file).then(function(z) {
         var promises = [];
-        var count = 0;
+        var seen = {};
         z.forEach(function(relativePath, zipEntry) {
             if (zipEntry.dir || relativePath.includes('._')) return;
-            var name = relativePath.split('/').pop().toLowerCase();
-            if (!/^\d+\.(rpg|bmp)$/.test(name)) return;
+            var target = saveImportTargetName(relativePath);
+            if (!target) return;
+            if (!/\.(rpg|prg|bmp)$/i.test(relativePath)) return;
+            if (seen[target]) return;
+            seen[target] = true;
             promises.push(zipEntry.async('uint8array').then(function(arr) {
-                FS.writeFile('/data/' + name, arr, {encoding: 'binary'});
-                count++;
+                return {name: target, data: arr};
             }));
         });
-        return Promise.all(promises).then(function() {
-            if (count === 0) throw new Error(strImportNoSave);
-            Module.setStatus(strSyncingFs);
-            return syncfsPromise(false).then(function() {
-                spinnerElement.style.display = 'none';
-                Module.setStatus(strImportDone + ' (' + count + ')');
-            });
+        return Promise.all(promises).then(function(entries) {
+            if (entries.length === 0) throw new Error(strImportNoSave);
+            return importSaveFileEntries(entries);
         });
     }).catch(function(e) {
         Module.printErr(e && e.stack ? e.stack : e);
