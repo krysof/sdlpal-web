@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.16';
+var BUILD_VERSION = '20260610.17';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -186,7 +186,7 @@ var sharedCutsceneVideoElement = null;
 var crtEnabled = false;
 var crtRenderer = null;
 var crtConfig = {
-    scaleMode: 'fill',           // fill | nearest | integer | square-pixels
+    scaleMode: 'canvas',         // fixed: follow original canvas size; no aspect-ratio mode
     crt: true,
     bloom: true,
     tonemap: 'off',              // off | reinhard | aces | lottes
@@ -212,8 +212,8 @@ function updateCrtButton() {
 }
 
 function setCrtScaleMode(mode) {
-    if (['fill', 'nearest', 'integer', 'square-pixels'].indexOf(mode) < 0) mode = 'fill';
-    crtConfig.scaleMode = mode;
+    /* Kept only for compatibility; CRT no longer has any aspect-ratio mode. */
+    crtConfig.scaleMode = 'canvas';
     if (crtEnabled && crtRenderer) crtRenderer.resize(true);
 }
 window.setCrtScaleMode = setCrtScaleMode;
@@ -226,49 +226,8 @@ function toggleCrtMode() {
 window.toggleCrtMode = toggleCrtMode;
 
 function computeCrtViewport(canvasW, canvasH, sourceW, sourceH) {
-    var dpr = Math.max(1, window.devicePixelRatio || 1);
-    var winW = canvasW / dpr;
-    var winH = canvasH / dpr;
-    var mode = crtConfig.scaleMode || 'fill';
-    var outW, outH, scale;
-
-    if (mode === 'fill') {
-        /* Default: do not force 4:3; keep the normal canvas/window shape. */
-        outW = winW;
-        outH = winH;
-    } else if (mode === 'square-pixels') {
-        scale = Math.max(1, Math.floor(Math.min(winW / sourceW, winH / sourceH)));
-        outW = sourceW * scale;
-        outH = sourceH * scale;
-    } else if (mode === 'integer') {
-        /* 384x224 with 7:9 pixel aspect becomes exactly 4:3. */
-        var logicalW = sourceW * 7 / 9;
-        scale = Math.max(1, Math.floor(Math.min(winW / logicalW, winH / sourceH)));
-        outW = Math.round(logicalW * scale);
-        outH = Math.round(sourceH * scale);
-        if (outW > winW || outH > winH) {
-            scale = Math.max(1, Math.floor(Math.min(winW / (4 / 3), winH)));
-            outH = scale;
-            outW = Math.round(scale * 4 / 3);
-        }
-    } else {
-        if (winW / winH > 4 / 3) {
-            outH = winH;
-            outW = outH * 4 / 3;
-        } else {
-            outW = winW;
-            outH = outW * 3 / 4;
-        }
-    }
-
-    outW = Math.max(1, Math.floor(outW * dpr));
-    outH = Math.max(1, Math.floor(outH * dpr));
-    return {
-        x: Math.floor((canvasW - outW) / 2),
-        y: Math.floor((canvasH - outH) / 2),
-        w: outW,
-        h: outH
-    };
+    /* No aspect-ratio mode: CRT output always uses the exact original canvas box. */
+    return { x: 0, y: 0, w: Math.max(1, canvasW), h: Math.max(1, canvasH) };
 }
 
 function createShader(gl, type, source) {
@@ -424,8 +383,15 @@ void main() {
         running: false,
         resize: function(force) {
             var dpr = Math.max(1, window.devicePixelRatio || 1);
-            var w = Math.max(1, Math.floor(window.innerWidth * dpr));
-            var h = Math.max(1, Math.floor(window.innerHeight * dpr));
+            var rect = this.source.getBoundingClientRect();
+            var cssW = Math.max(1, rect.width || window.innerWidth || 1);
+            var cssH = Math.max(1, rect.height || window.innerHeight || 1);
+            var w = Math.max(1, Math.floor(cssW * dpr));
+            var h = Math.max(1, Math.floor(cssH * dpr));
+            out.style.left = Math.round(rect.left || 0) + 'px';
+            out.style.top = Math.round(rect.top || 0) + 'px';
+            out.style.width = cssW + 'px';
+            out.style.height = cssH + 'px';
             if (force || out.width !== w || out.height !== h) {
                 out.width = w;
                 out.height = h;
