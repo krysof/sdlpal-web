@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>真·仙剑奇侠传 20260610.10</title>
+    <title>真·仙剑奇侠传 20260610.11</title>
     <link rel="icon" href="icon.png" type="image/png">
     <style>
       :root {
@@ -197,12 +197,13 @@
       }
       #utilityBar {
         position: fixed;
-        top: 12px;
-        left: 12px;
-        z-index: 1001;
+        top: max(12px, env(safe-area-inset-top));
+        left: max(12px, env(safe-area-inset-left));
+        z-index: 1103;
         display: flex;
         gap: 8px;
       }
+      #utilityBar input[type=file] { display: none; }
       #utilityBar button {
         border: 1px solid rgba(246,216,120,.35);
         border-radius: 999px;
@@ -374,7 +375,14 @@
       #mobileControls.battle-active .vc-battle { display: grid; }
       @media (pointer: coarse), (max-width: 820px) {
         #mobileControls.active { display: block; }
-        #utilityBar { display: none; }
+        #utilityBar {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          transform: scale(.92);
+          transform-origin: top left;
+        }
+        #utilityBar button { padding: 7px 10px; font-size: 12px; }
       }
       @media (max-height: 430px) and (orientation: landscape) {
         .vc-btn { width: 48px; height: 48px; }
@@ -396,6 +404,8 @@
     <div id="utilityBar">
       <button id="btnDeleteData" onclick="clearData();">清除快取</button>
       <button id="btnDownloadSave" onclick="downloadSaves();">下載記錄</button>
+      <button id="btnUploadSave" onclick="document.getElementById('inputUploadSave').click();">上傳記錄</button>
+      <input id="inputUploadSave" type="file" accept=".zip,application/zip" onchange="uploadSaves(this.files && this.files[0]); this.value='';">
     </div>
 
     <div id="audioControls" aria-label="音訊開關">
@@ -439,9 +449,9 @@
     <div id="loadingScreen">
       <div class="loading-card">
         <img id="logo" src="icon.png" alt="SDLPAL">
-        <h1>真·仙剑奇侠传 20260610.10</h1>
+        <h1>真·仙剑奇侠传 20260610.11</h1>
         <div class="subtitle">SDLPAL Web Edition</div>
-        <div id="buildVersion">版本 20260610.10</div>
+        <div id="buildVersion">版本 20260610.11</div>
         <div class="tuning-panel" id="tuningPanel">
           <label class="tuning-setting"><span id="expLabelText">戰鬥經驗</span><input id="expMultiplier" type="range" min="1" max="50" step="1" value="5"><span class="tuning-value"><span id="expMultiplierValue">5</span> 倍</span></label>
           <label class="tuning-setting"><span id="cashLabelText">戰鬥金錢</span><input id="cashMultiplier" type="range" min="1" max="100" step="1" value="5"><span class="tuning-value"><span id="cashMultiplierValue">5</span> 倍</span></label>
@@ -457,8 +467,8 @@
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=20260610.10"></script>
-    <script type="text/javascript" src="sdlpal.js?v=20260610.10"></script>
+    <script type="text/javascript" src="main.js?v=20260610.11"></script>
+    <script type="text/javascript" src="sdlpal.js?v=20260610.11"></script>
 
     <script type="text/javascript">
       var userLang = navigator.language || navigator.userLanguage;

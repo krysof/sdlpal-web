@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.10';
+var BUILD_VERSION = '20260610.11';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -62,6 +62,8 @@ var strSyncingFs = 'Syncing FS...';
 var strDone = 'Done.';
 var strDeleting = 'Deleting...';
 var strNoSave = 'Cannot find saved games to download';
+var strImportNoSave = 'No save files found in ZIP.';
+var strImportDone = 'Save files imported.';
 var strNoData = 'Error: Game data not loaded!';
 var strInit = 'Initializing...';
 var strLoading = 'Loading';
@@ -81,6 +83,8 @@ if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
     strDone = '完成。';
     strDeleting = '正在刪除...';
     strNoSave = '無法找到可下載的遊戲記錄！';
+    strImportNoSave = 'ZIP 內沒有找到記錄檔。';
+    strImportDone = '記錄已上傳。';
     strNoData = '錯誤：遊戲資料尚未載入。';
     strInit = '正在初始化...';
     strLoading = '正在加載';
@@ -98,6 +102,8 @@ if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
     strDone = '完成。';
     strDeleting = '正在刪除...';
     strNoSave = '無法找到可下載的遊戲記錄！';
+    strImportNoSave = 'ZIP 內沒有找到記錄檔。';
+    strImportDone = '記錄已上傳。';
     strNoData = '錯誤：遊戲資料尚未載入。';
     strInit = '正在初始化...';
     strLoading = '正在加載';
@@ -1268,7 +1274,7 @@ function downloadSaves() {
     var zip = new JSZip();
     var hasData = false;
     Object.keys(FS.lookupPath('/data').node.contents).forEach(function(element) {
-        if (element.endsWith('.rpg')) {
+        if (element.endsWith('.rpg') || element.endsWith('.bmp')) {
             var array = FS.readFile('/data/' + element);
             zip.file(element, array);
             hasData = true;
@@ -1281,6 +1287,41 @@ function downloadSaves() {
     zip.generateAsync({type:'base64'}).then(function (base64) {
         window.location = 'data:application/zip;base64,' + base64;
     }, function (err) { Module.printErr(err); });
+}
+
+function uploadSaves(file) {
+    if (!file) return;
+    Module.setStatus(strLoading + ' ' + file.name + '...');
+    spinnerElement.style.display = 'inline-block';
+    clearErrorDetails();
+
+    var zip = new JSZip();
+    zip.loadAsync(file).then(function(z) {
+        var promises = [];
+        var count = 0;
+        z.forEach(function(relativePath, zipEntry) {
+            if (zipEntry.dir || relativePath.includes('._')) return;
+            var name = relativePath.split('/').pop().toLowerCase();
+            if (!/^\d+\.(rpg|bmp)$/.test(name)) return;
+            promises.push(zipEntry.async('uint8array').then(function(arr) {
+                FS.writeFile('/data/' + name, arr, {encoding: 'binary'});
+                count++;
+            }));
+        });
+        return Promise.all(promises).then(function() {
+            if (count === 0) throw new Error(strImportNoSave);
+            Module.setStatus(strSyncingFs);
+            return syncfsPromise(false).then(function() {
+                spinnerElement.style.display = 'none';
+                Module.setStatus(strImportDone + ' (' + count + ')');
+            });
+        });
+    }).catch(function(e) {
+        Module.printErr(e && e.stack ? e.stack : e);
+        showErrorDetails(e, '上傳記錄失敗：');
+        Module.setStatus('上傳記錄失敗');
+        spinnerElement.style.display = 'none';
+    });
 }
 
 async function runGame() {
