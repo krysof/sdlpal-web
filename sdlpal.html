@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>真·仙剑奇侠传 20260610.18</title>
+    <title>真·仙剑奇侠传 20260610.20</title>
     <link rel="icon" href="icon.png" type="image/png">
     <style>
       :root {
@@ -422,8 +422,7 @@
 
     <div id="utilityBar">
       <button id="btnDeleteData" onclick="clearData();">清除快取</button>
-      <button id="btnDownloadSave" onclick="downloadSaves();">下載記錄</button>
-      <button id="btnUploadSave" onclick="document.getElementById('inputUploadSave').click();">上傳記錄</button>
+      <button id="btnDownloadSave" onclick="openSaveManager();">存檔管理</button>
       <input id="inputUploadSave" type="file" accept=".rpg,.prg,.zip,application/zip" onchange="uploadSaves(this.files && this.files[0]); this.value='';">
     </div>
 
@@ -469,9 +468,9 @@
     <div id="loadingScreen">
       <div class="loading-card">
         <img id="logo" src="icon.png" alt="SDLPAL">
-        <h1>真·仙剑奇侠传 20260610.18</h1>
+        <h1>真·仙剑奇侠传 20260610.20</h1>
         <div class="subtitle">SDLPAL Web Edition</div>
-        <div id="buildVersion">版本 20260610.18</div>
+        <div id="buildVersion">版本 20260610.20</div>
         <div class="tuning-panel" id="tuningPanel">
           <label class="tuning-setting"><span id="expLabelText">戰鬥經驗</span><input id="expMultiplier" type="range" min="1" max="50" step="1" value="5"><span class="tuning-value"><span id="expMultiplierValue">5</span> 倍</span></label>
           <label class="tuning-setting"><span id="cashLabelText">戰鬥金錢</span><input id="cashMultiplier" type="range" min="1" max="100" step="1" value="5"><span class="tuning-value"><span id="cashMultiplierValue">5</span> 倍</span></label>
@@ -487,14 +486,14 @@
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=20260610.18"></script>
-    <script type="text/javascript" src="sdlpal.js?v=20260610.18"></script>
+    <script type="text/javascript" src="main.js?v=20260610.20"></script>
+    <script type="text/javascript" src="sdlpal.js?v=20260610.20"></script>
 
     <script type="text/javascript">
       var userLang = navigator.language || navigator.userLanguage;
       if (userLang === 'zh-TW' || userLang.startsWith('zh-Hant')) {
         document.getElementById('btnDeleteData').textContent = '清除快取';
-        document.getElementById('btnDownloadSave').textContent = '下載記錄';
+        document.getElementById('btnDownloadSave').textContent = '存檔管理';
         document.getElementById('btnStartGame').textContent = '開始遊戲';
         document.getElementById('tips').textContent = '首次進入會自動下載遊戲資源。準備完成後點擊「開始遊戲」，片頭可按任意鍵跳過。';
         document.getElementById('expLabelText').textContent = '戰鬥經驗';
@@ -502,7 +501,7 @@
         document.getElementById('speedLabelText').textContent = '遊戲速度';
       } else if (!(userLang === 'zh-CN' || userLang.startsWith('zh-Hans'))) {
         document.getElementById('btnDeleteData').textContent = 'Clear cache';
-        document.getElementById('btnDownloadSave').textContent = 'Download saves';
+        document.getElementById('btnDownloadSave').textContent = 'Save manager';
         document.getElementById('btnStartGame').textContent = 'Start Game';
         document.getElementById('tips').textContent = 'Game files download automatically on first launch. Click Start Game when ready. Press any key to skip intro videos.';
         document.getElementById('expLabelText').textContent = 'Battle EXP';

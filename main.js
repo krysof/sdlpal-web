@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.18';
+var BUILD_VERSION = '20260610.20';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1566,11 +1566,22 @@ function saveSlotChineseNumber(n) {
     return '壹佰';
 }
 
+function readLe16(data, off) {
+    return data && data.length >= off + 2 ? (data[off] | (data[off + 1] << 8)) : 0;
+}
+
+function isLikelyValidSaveData(data) {
+    if (!data || data.length < 1024) return false;
+    var times = readLe16(data, 0);
+    var scene = readLe16(data, 8);
+    return times > 0 && times <= 9999 && scene > 0 && scene < 512;
+}
+
 function readSaveTimesFromRpg(path) {
     try {
         var data = FS.readFile(path);
-        if (!data || data.length < 2) return 0;
-        return data[0] | (data[1] << 8);
+        if (!isLikelyValidSaveData(data)) return 0;
+        return readLe16(data, 0);
     } catch (e) { return 0; }
 }
 
@@ -1593,8 +1604,10 @@ function getSaveExportEntries() {
             var slot = parseInt(m[1], 10);
             if (!slot) return;
             var path = '/data/' + element;
-            var times = readSaveTimesFromRpg(path);
-            if (times <= 0) return;
+            var data;
+            try { data = FS.readFile(path); } catch (e) { return; }
+            if (!isLikelyValidSaveData(data)) return;
+            var times = readLe16(data, 0);
             entries.push({
                 slot: slot,
                 name: element,
@@ -1643,12 +1656,64 @@ function exportSelectedSaves(slots) {
     }, function(err) { Module.printErr(err); });
 }
 
-function downloadSaves() {
-    var entries = getSaveExportEntries();
-    if (!entries.length) {
-        window.alert(strNoSave);
-        return;
+function makeSaveManagerButton(text, primary, danger) {
+    var b = document.createElement('button');
+    b.textContent = text;
+    b.style.border = '1px solid rgba(246,216,120,.45)';
+    b.style.borderRadius = '999px';
+    b.style.padding = '9px 14px';
+    b.style.color = primary ? '#1a0906' : '#ffeec1';
+    if (danger) {
+        b.style.background = 'linear-gradient(180deg,#b9252d,#681116)';
+        b.style.color = '#fff0c8';
+    } else {
+        b.style.background = primary ? 'linear-gradient(180deg,#f6d878,#b9852e)' : 'rgba(0,0,0,.42)';
     }
+    b.style.fontWeight = '800';
+    return b;
+}
+
+function getCheckedSaveManagerSlots(list) {
+    return Array.prototype.slice.call(list.querySelectorAll('input[type=checkbox]:checked'))
+        .map(function(cb) { return parseInt(cb.value, 10); })
+        .filter(Boolean);
+}
+
+function deleteSelectedSaveSlots(slots) {
+    if (!slots.length) {
+        window.alert('請至少選擇一個記錄。');
+        return false;
+    }
+    var names = [];
+    slots.forEach(function(slot) {
+        ['rpg', 'bmp'].forEach(function(ext) {
+            var name = String(slot) + '.' + ext;
+            if (saveFileExists(name)) names.push(name);
+        });
+    });
+    if (!names.length) {
+        window.alert(strNoSave);
+        return false;
+    }
+    var shown = slots.map(function(slot) { return '文書' + saveSlotChineseNumber(slot); }).join('、');
+    if (!window.confirm('將刪除以下記錄：\n' + shown + '\n\n此操作不可復原，是否繼續？')) {
+        return false;
+    }
+    names.forEach(function(name) {
+        try { FS.unlink('/data/' + name); } catch (e) {}
+    });
+    Module.setStatus(strSyncingFs);
+    spinnerElement.style.display = 'inline-block';
+    FS.syncfs(false, function(err) {
+        if (err) Module.printErr(err);
+        spinnerElement.style.display = 'none';
+        Module.setStatus(strDone);
+    });
+    return true;
+}
+
+function openSaveManager() {
+    var entries = getSaveExportEntries();
 
     var overlay = document.createElement('div');
     overlay.style.position = 'fixed';
@@ -1661,8 +1726,8 @@ function downloadSaves() {
     overlay.style.boxSizing = 'border-box';
 
     var panel = document.createElement('div');
-    panel.style.width = 'min(520px, calc(100vw - 28px))';
-    panel.style.maxHeight = 'min(680px, calc(100vh - 40px))';
+    panel.style.width = 'min(560px, calc(100vw - 28px))';
+    panel.style.maxHeight = 'min(700px, calc(100vh - 40px))';
     panel.style.display = 'grid';
     panel.style.gridTemplateRows = 'auto 1fr auto';
     panel.style.border = '1px solid rgba(246,216,120,.48)';
@@ -1673,7 +1738,7 @@ function downloadSaves() {
     panel.style.overflow = 'hidden';
 
     var title = document.createElement('div');
-    title.textContent = '選擇要下載的記錄';
+    title.textContent = '存檔管理';
     title.style.padding = '16px 18px 12px';
     title.style.fontWeight = '900';
     title.style.fontSize = '18px';
@@ -1683,32 +1748,41 @@ function downloadSaves() {
     list.style.overflow = 'auto';
     list.style.padding = '4px 14px 10px';
 
-    entries.forEach(function(e) {
-        var label = document.createElement('label');
-        label.style.display = 'grid';
-        label.style.gridTemplateColumns = '26px 1fr';
-        label.style.alignItems = 'center';
-        label.style.gap = '8px';
-        label.style.padding = '10px 8px';
-        label.style.borderBottom = '1px solid rgba(246,216,120,.13)';
-        label.style.fontSize = '15px';
-        label.style.userSelect = 'none';
+    if (!entries.length) {
+        var empty = document.createElement('div');
+        empty.textContent = '目前沒有可管理的記錄。';
+        empty.style.padding = '22px 8px';
+        empty.style.color = 'rgba(255,238,193,.72)';
+        empty.style.textAlign = 'center';
+        list.appendChild(empty);
+    } else {
+        entries.forEach(function(e) {
+            var label = document.createElement('label');
+            label.style.display = 'grid';
+            label.style.gridTemplateColumns = '26px 1fr';
+            label.style.alignItems = 'center';
+            label.style.gap = '8px';
+            label.style.padding = '10px 8px';
+            label.style.borderBottom = '1px solid rgba(246,216,120,.13)';
+            label.style.fontSize = '15px';
+            label.style.userSelect = 'none';
 
-        var cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = true;
-        cb.value = String(e.slot);
-        cb.style.width = '20px';
-        cb.style.height = '20px';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = true;
+            cb.value = String(e.slot);
+            cb.style.width = '20px';
+            cb.style.height = '20px';
 
-        var text = document.createElement('div');
-        text.innerHTML = '<b>文書' + saveSlotChineseNumber(e.slot) + '</b>' +
-            '　<span style="color:#f6d878">次數 ' + e.times + '</span>' +
-            '　<span style="color:rgba(255,238,193,.72)">' + e.timeText + '</span>';
-        label.appendChild(cb);
-        label.appendChild(text);
-        list.appendChild(label);
-    });
+            var text = document.createElement('div');
+            text.innerHTML = '<b>文書' + saveSlotChineseNumber(e.slot) + '</b>' +
+                '　<span style="color:#f6d878">次數 ' + e.times + '</span>' +
+                '　<span style="color:rgba(255,238,193,.72)">' + e.timeText + '</span>';
+            label.appendChild(cb);
+            label.appendChild(text);
+            list.appendChild(label);
+        });
+    }
 
     var buttons = document.createElement('div');
     buttons.style.display = 'flex';
@@ -1718,43 +1792,52 @@ function downloadSaves() {
     buttons.style.padding = '12px 14px 14px';
     buttons.style.borderTop = '1px solid rgba(246,216,120,.18)';
 
-    function mkButton(text, primary) {
-        var b = document.createElement('button');
-        b.textContent = text;
-        b.style.border = '1px solid rgba(246,216,120,.45)';
-        b.style.borderRadius = '999px';
-        b.style.padding = '9px 14px';
-        b.style.color = primary ? '#1a0906' : '#ffeec1';
-        b.style.background = primary ? 'linear-gradient(180deg,#f6d878,#b9852e)' : 'rgba(0,0,0,.42)';
-        b.style.fontWeight = '800';
-        return b;
-    }
-
-    var allBtn = mkButton('全選', false);
-    var noneBtn = mkButton('全不選', false);
-    var cancelBtn = mkButton('取消', false);
-    var okBtn = mkButton('下載', true);
+    var allBtn = makeSaveManagerButton('全選', false, false);
+    var noneBtn = makeSaveManagerButton('全不選', false, false);
+    var uploadBtn = makeSaveManagerButton('上傳', false, false);
+    var deleteBtn = makeSaveManagerButton('刪除', false, true);
+    var downloadBtn = makeSaveManagerButton('下載', true, false);
+    var closeBtn = makeSaveManagerButton('關閉', false, false);
 
     allBtn.onclick = function() { list.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = true; }); };
     noneBtn.onclick = function() { list.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = false; }); };
-    cancelBtn.onclick = function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
-    okBtn.onclick = function() {
-        var slots = Array.prototype.slice.call(list.querySelectorAll('input[type=checkbox]:checked')).map(function(cb) { return parseInt(cb.value, 10); }).filter(Boolean);
+    uploadBtn.onclick = function() {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        var input = document.getElementById('inputUploadSave');
+        if (input) input.click();
+    };
+    deleteBtn.onclick = function() {
+        var slots = getCheckedSaveManagerSlots(list);
+        if (deleteSelectedSaveSlots(slots) && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    };
+    downloadBtn.onclick = function() {
+        var slots = getCheckedSaveManagerSlots(list);
         if (!slots.length) { window.alert('請至少選擇一個記錄。'); return; }
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         exportSelectedSaves(slots);
     };
-    overlay.onclick = function(e) { if (e.target === overlay) cancelBtn.onclick(); };
+    closeBtn.onclick = function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+    overlay.onclick = function(e) { if (e.target === overlay) closeBtn.onclick(); };
 
-    buttons.appendChild(allBtn);
-    buttons.appendChild(noneBtn);
-    buttons.appendChild(cancelBtn);
-    buttons.appendChild(okBtn);
+    if (entries.length) {
+        buttons.appendChild(allBtn);
+        buttons.appendChild(noneBtn);
+    }
+    buttons.appendChild(uploadBtn);
+    if (entries.length) {
+        buttons.appendChild(deleteBtn);
+        buttons.appendChild(downloadBtn);
+    }
+    buttons.appendChild(closeBtn);
     panel.appendChild(title);
     panel.appendChild(list);
     panel.appendChild(buttons);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
+}
+
+function downloadSaves() {
+    openSaveManager();
 }
 
 function saveImportTargetName(name) {
