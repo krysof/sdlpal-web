@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.9';
+var BUILD_VERSION = '20260610.10';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -17,6 +17,40 @@ function forceDocumentTitle() {
         document.title = APP_TITLE;
     } catch (e) {}
     forceMediaTitle();
+}
+
+function isMobileLike() {
+    try {
+        return /iphone|ipad|ipod|android|mobile/i.test(navigator.userAgent || '') || Math.min(window.innerWidth || 9999, window.innerHeight || 9999) < 700;
+    } catch (e) { return false; }
+}
+
+function formatErrorForUser(e) {
+    if (!e) return '';
+    var text = '';
+    if (typeof e === 'string') text = e;
+    else if (e.stack) text = e.stack;
+    else if (e.message) text = e.message;
+    else text = String(e);
+    text = text.replace(/https:\/\/krysof\.github\.io\/sdlpal-web\//g, '');
+    return text;
+}
+
+function showErrorDetails(e, prefix) {
+    if (!errorDetailsElement) errorDetailsElement = document.getElementById('errorDetails');
+    if (!errorDetailsElement) return;
+    var text = formatErrorForUser(e);
+    if (!text) return;
+    if (prefix) text = prefix + '\n' + text;
+    errorDetailsElement.textContent = text;
+    errorDetailsElement.style.display = 'block';
+}
+
+function clearErrorDetails() {
+    if (!errorDetailsElement) errorDetailsElement = document.getElementById('errorDetails');
+    if (!errorDetailsElement) return;
+    errorDetailsElement.textContent = '';
+    errorDetailsElement.style.display = 'none';
 }
 window.SDLPAL_forceTitle = forceDocumentTitle;
 forceDocumentTitle();
@@ -82,6 +116,7 @@ var statusElement = document.getElementById('status');
 var progressElement = document.getElementById('progress');
 var spinnerElement = document.getElementById('spinner');
 var tipsElement;
+var errorDetailsElement;
 var loadingElement = document.getElementById('loadingScreen');
 var startButtonElement = document.getElementById('btnStartGame');
 var expMultiplierElement = document.getElementById('expMultiplier');
@@ -954,6 +989,7 @@ window.addEventListener('blur', pauseHtmlBgmForBackground);
 
 window.addEventListener('load', function () {
     tipsElement = document.getElementById('tips');
+    errorDetailsElement = document.getElementById('errorDetails');
     if (tipsElement) tipsElement.textContent = strTips;
 });
 
@@ -1041,6 +1077,7 @@ function onRuntimeInitialized() {
         }).catch(function(e) {
             Module.printErr(e && e.stack ? e.stack : e);
             Module.setStatus(strBundledFailed);
+            showErrorDetails(e, '具體錯誤：');
             spinnerElement.style.display = 'none';
         });
     });
@@ -1051,6 +1088,7 @@ function hideLoadingScreen() {
 }
 
 function showStartButton() {
+    clearErrorDetails();
     Module.setStatus(strReady);
     spinnerElement.style.display = 'none';
     progressElement.hidden = true;
@@ -1127,7 +1165,7 @@ async function installBundledDataIfNeeded(force) {
         Module.setStatus(strBundledChecking);
 
         var manifestResp = await fetch('data/manifest.json', {cache: 'no-cache'});
-        if (!manifestResp.ok) throw new Error('Cannot fetch data/manifest.json');
+        if (!manifestResp.ok) throw new Error('HTTP ' + manifestResp.status + ' for data/manifest.json');
         var manifest = await manifestResp.json();
 
         var currentVersion = readTextIfExists('/data/.bundle_version');
@@ -1261,6 +1299,7 @@ async function runGame() {
         if (e === 'unwind' || (e && e.message === 'unwind')) return;
         Module.printErr(e && e.stack ? e.stack : e);
         Module.setStatus('Exception thrown, see JavaScript console');
+        showErrorDetails(e, '遊戲執行錯誤：');
         spinnerElement.style.display = 'none';
         throw e;
     }

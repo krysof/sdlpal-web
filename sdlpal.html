@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>真·仙剑奇侠传 20260610.9</title>
+    <title>真·仙剑奇侠传 20260610.10</title>
     <link rel="icon" href="icon.png" type="image/png">
     <style>
       :root {
@@ -178,6 +178,22 @@
         color: rgba(255,255,255,.56);
         font-size: 13px;
         line-height: 1.55;
+      }
+      #errorDetails {
+        display: none;
+        margin-top: 14px;
+        padding: 10px 12px;
+        max-height: 138px;
+        overflow: auto;
+        border: 1px solid rgba(255, 92, 92, .45);
+        border-radius: 10px;
+        background: rgba(40, 0, 0, .35);
+        color: #ffd6d6;
+        font-size: 12px;
+        line-height: 1.45;
+        text-align: left;
+        white-space: pre-wrap;
+        word-break: break-word;
       }
       #utilityBar {
         position: fixed;
@@ -423,9 +439,9 @@
     <div id="loadingScreen">
       <div class="loading-card">
         <img id="logo" src="icon.png" alt="SDLPAL">
-        <h1>真·仙剑奇侠传 20260610.9</h1>
+        <h1>真·仙剑奇侠传 20260610.10</h1>
         <div class="subtitle">SDLPAL Web Edition</div>
-        <div id="buildVersion">版本 20260610.9</div>
+        <div id="buildVersion">版本 20260610.10</div>
         <div class="tuning-panel" id="tuningPanel">
           <label class="tuning-setting"><span id="expLabelText">戰鬥經驗</span><input id="expMultiplier" type="range" min="1" max="50" step="1" value="5"><span class="tuning-value"><span id="expMultiplierValue">5</span> 倍</span></label>
           <label class="tuning-setting"><span id="cashLabelText">戰鬥金錢</span><input id="cashMultiplier" type="range" min="1" max="100" step="1" value="5"><span class="tuning-value"><span id="cashMultiplierValue">5</span> 倍</span></label>
@@ -436,12 +452,13 @@
         <progress value="0" max="100" id="progress" hidden></progress>
         <button id="btnStartGame" onclick="launch();">開始遊戲</button>
         <div id="tips">首次进入会自動下载游戏资源。准备完成后点击“開始遊戲”，片头可按任意键跳过。</div>
+        <pre id="errorDetails"></pre>
       </div>
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=20260610.9"></script>
-    <script type="text/javascript" src="sdlpal.js?v=20260610.9"></script>
+    <script type="text/javascript" src="main.js?v=20260610.10"></script>
+    <script type="text/javascript" src="sdlpal.js?v=20260610.10"></script>
 
     <script type="text/javascript">
       var userLang = navigator.language || navigator.userLanguage;
