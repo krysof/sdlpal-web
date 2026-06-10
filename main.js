@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.5';
+var BUILD_VERSION = '20260610.6';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
