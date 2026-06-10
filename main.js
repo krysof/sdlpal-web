@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.14';
+var BUILD_VERSION = '20260610.15';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1585,23 +1585,204 @@ function clearData() {
     }
 }
 
-function downloadSaves() {
+function saveSlotChineseNumber(n) {
+    var digits = ['', '壹', '貳', '參', '肆', '伍', '陸', '柒', '捌', '玖'];
+    n = parseInt(n, 10) || 0;
+    if (n <= 0) return '零';
+    if (n < 10) return digits[n];
+    if (n === 10) return '壹拾';
+    if (n < 20) return '壹拾' + digits[n % 10];
+    if (n < 100) return digits[Math.floor(n / 10)] + '拾' + (n % 10 ? digits[n % 10] : '');
+    return '壹佰';
+}
+
+function readSaveTimesFromRpg(path) {
+    try {
+        var data = FS.readFile(path);
+        if (!data || data.length < 2) return 0;
+        return data[0] | (data[1] << 8);
+    } catch (e) { return 0; }
+}
+
+function formatSaveMtime(path) {
+    try {
+        var st = FS.stat(path);
+        var d = st && st.mtime ? new Date(st.mtime) : null;
+        if (!d || isNaN(d.getTime())) return '--/-- --:--';
+        function pad(n) { return String(n).padStart(2, '0'); }
+        return pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    } catch (e) { return '--/-- --:--'; }
+}
+
+function getSaveExportEntries() {
+    var entries = [];
+    try {
+        Object.keys(FS.lookupPath('/data').node.contents).forEach(function(element) {
+            var m = element.match(/^(\d+)\.rpg$/i);
+            if (!m) return;
+            var slot = parseInt(m[1], 10);
+            if (!slot) return;
+            var path = '/data/' + element;
+            entries.push({
+                slot: slot,
+                name: element,
+                path: path,
+                times: readSaveTimesFromRpg(path),
+                timeText: formatSaveMtime(path)
+            });
+        });
+    } catch (e) {}
+    entries.sort(function(a, b) { return a.slot - b.slot; });
+    return entries;
+}
+
+function exportSelectedSaves(slots) {
     var zip = new JSZip();
-    var hasData = false;
-    Object.keys(FS.lookupPath('/data').node.contents).forEach(function(element) {
-        if (element.endsWith('.rpg')) {
-            var array = FS.readFile('/data/' + element);
-            zip.file(element, array);
-            hasData = true;
-        }
+    var count = 0;
+    slots.forEach(function(slot) {
+        ['rpg', 'bmp'].forEach(function(ext) {
+            var name = String(slot) + '.' + ext;
+            var path = '/data/' + name;
+            try {
+                var array = FS.readFile(path);
+                zip.file(name, array);
+                if (ext === 'rpg') count++;
+            } catch (e) {}
+        });
     });
-    if (!hasData) {
+    if (count <= 0) {
         window.alert(strNoSave);
         return;
     }
-    zip.generateAsync({type:'base64'}).then(function (base64) {
-        window.location = 'data:application/zip;base64,' + base64;
-    }, function (err) { Module.printErr(err); });
+    Module.setStatus('正在打包記錄...');
+    zip.generateAsync({type:'blob'}).then(function(blob) {
+        var a = document.createElement('a');
+        var now = new Date();
+        function pad(n) { return String(n).padStart(2, '0'); }
+        a.download = 'pal-saves-' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes()) + '.zip';
+        a.href = URL.createObjectURL(blob);
+        document.body.appendChild(a);
+        a.click();
+        window.setTimeout(function() {
+            URL.revokeObjectURL(a.href);
+            if (a.parentNode) a.parentNode.removeChild(a);
+        }, 1000);
+        Module.setStatus(strDone);
+    }, function(err) { Module.printErr(err); });
+}
+
+function downloadSaves() {
+    var entries = getSaveExportEntries();
+    if (!entries.length) {
+        window.alert(strNoSave);
+        return;
+    }
+
+    var overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.zIndex = '120000';
+    overlay.style.background = 'rgba(0,0,0,.68)';
+    overlay.style.display = 'grid';
+    overlay.style.placeItems = 'center';
+    overlay.style.padding = '18px';
+    overlay.style.boxSizing = 'border-box';
+
+    var panel = document.createElement('div');
+    panel.style.width = 'min(520px, calc(100vw - 28px))';
+    panel.style.maxHeight = 'min(680px, calc(100vh - 40px))';
+    panel.style.display = 'grid';
+    panel.style.gridTemplateRows = 'auto 1fr auto';
+    panel.style.border = '1px solid rgba(246,216,120,.48)';
+    panel.style.borderRadius = '18px';
+    panel.style.background = 'linear-gradient(180deg, rgba(50,21,17,.96), rgba(18,11,10,.96))';
+    panel.style.boxShadow = '0 24px 80px rgba(0,0,0,.62)';
+    panel.style.color = '#ffeec1';
+    panel.style.overflow = 'hidden';
+
+    var title = document.createElement('div');
+    title.textContent = '選擇要下載的記錄';
+    title.style.padding = '16px 18px 12px';
+    title.style.fontWeight = '900';
+    title.style.fontSize = '18px';
+    title.style.color = '#f6d878';
+
+    var list = document.createElement('div');
+    list.style.overflow = 'auto';
+    list.style.padding = '4px 14px 10px';
+
+    entries.forEach(function(e) {
+        var label = document.createElement('label');
+        label.style.display = 'grid';
+        label.style.gridTemplateColumns = '26px 1fr';
+        label.style.alignItems = 'center';
+        label.style.gap = '8px';
+        label.style.padding = '10px 8px';
+        label.style.borderBottom = '1px solid rgba(246,216,120,.13)';
+        label.style.fontSize = '15px';
+        label.style.userSelect = 'none';
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.value = String(e.slot);
+        cb.style.width = '20px';
+        cb.style.height = '20px';
+
+        var text = document.createElement('div');
+        text.innerHTML = '<b>文書' + saveSlotChineseNumber(e.slot) + '</b>' +
+            '　<span style="color:#f6d878">次數 ' + e.times + '</span>' +
+            '　<span style="color:rgba(255,238,193,.72)">' + e.timeText + '</span>';
+        label.appendChild(cb);
+        label.appendChild(text);
+        list.appendChild(label);
+    });
+
+    var buttons = document.createElement('div');
+    buttons.style.display = 'flex';
+    buttons.style.flexWrap = 'wrap';
+    buttons.style.gap = '8px';
+    buttons.style.justifyContent = 'flex-end';
+    buttons.style.padding = '12px 14px 14px';
+    buttons.style.borderTop = '1px solid rgba(246,216,120,.18)';
+
+    function mkButton(text, primary) {
+        var b = document.createElement('button');
+        b.textContent = text;
+        b.style.border = '1px solid rgba(246,216,120,.45)';
+        b.style.borderRadius = '999px';
+        b.style.padding = '9px 14px';
+        b.style.color = primary ? '#1a0906' : '#ffeec1';
+        b.style.background = primary ? 'linear-gradient(180deg,#f6d878,#b9852e)' : 'rgba(0,0,0,.42)';
+        b.style.fontWeight = '800';
+        return b;
+    }
+
+    var allBtn = mkButton('全選', false);
+    var noneBtn = mkButton('全不選', false);
+    var cancelBtn = mkButton('取消', false);
+    var okBtn = mkButton('下載', true);
+
+    allBtn.onclick = function() { list.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = true; }); };
+    noneBtn.onclick = function() { list.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = false; }); };
+    cancelBtn.onclick = function() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
+    okBtn.onclick = function() {
+        var slots = Array.prototype.slice.call(list.querySelectorAll('input[type=checkbox]:checked')).map(function(cb) { return parseInt(cb.value, 10); }).filter(Boolean);
+        if (!slots.length) { window.alert('請至少選擇一個記錄。'); return; }
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        exportSelectedSaves(slots);
+    };
+    overlay.onclick = function(e) { if (e.target === overlay) cancelBtn.onclick(); };
+
+    buttons.appendChild(allBtn);
+    buttons.appendChild(noneBtn);
+    buttons.appendChild(cancelBtn);
+    buttons.appendChild(okBtn);
+    panel.appendChild(title);
+    panel.appendChild(list);
+    panel.appendChild(buttons);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
 }
 
 function uploadSaves(file) {
