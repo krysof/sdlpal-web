@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.20';
+var BUILD_VERSION = '20260610.21';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1573,8 +1573,7 @@ function readLe16(data, off) {
 function isLikelyValidSaveData(data) {
     if (!data || data.length < 1024) return false;
     var times = readLe16(data, 0);
-    var scene = readLe16(data, 8);
-    return times > 0 && times <= 9999 && scene > 0 && scene < 512;
+    return times > 0 && times <= 9999;
 }
 
 function readSaveTimesFromRpg(path) {
