@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.13';
+var BUILD_VERSION = '20260610.14';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -205,7 +205,7 @@ function updateCrtButton() {
     if (crtToggleElement) {
         crtToggleElement.classList.toggle('off', !crtEnabled);
         crtToggleElement.classList.toggle('crt-on', crtEnabled);
-        crtToggleElement.textContent = crtEnabled ? 'CRT' : 'CRT';
+        crtToggleElement.textContent = '畫';
         crtToggleElement.title = crtEnabled ? '關閉CRT畫面' : '啟用CRT畫面';
         crtToggleElement.setAttribute('aria-label', crtToggleElement.title);
     }
