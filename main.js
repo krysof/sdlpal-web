@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.15';
+var BUILD_VERSION = '20260610.16';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -186,7 +186,7 @@ var sharedCutsceneVideoElement = null;
 var crtEnabled = false;
 var crtRenderer = null;
 var crtConfig = {
-    scaleMode: 'nearest',        // nearest | integer | square-pixels
+    scaleMode: 'fill',           // fill | nearest | integer | square-pixels
     crt: true,
     bloom: true,
     tonemap: 'off',              // off | reinhard | aces | lottes
@@ -212,7 +212,7 @@ function updateCrtButton() {
 }
 
 function setCrtScaleMode(mode) {
-    if (['nearest', 'integer', 'square-pixels'].indexOf(mode) < 0) mode = 'nearest';
+    if (['fill', 'nearest', 'integer', 'square-pixels'].indexOf(mode) < 0) mode = 'fill';
     crtConfig.scaleMode = mode;
     if (crtEnabled && crtRenderer) crtRenderer.resize(true);
 }
@@ -229,10 +229,14 @@ function computeCrtViewport(canvasW, canvasH, sourceW, sourceH) {
     var dpr = Math.max(1, window.devicePixelRatio || 1);
     var winW = canvasW / dpr;
     var winH = canvasH / dpr;
-    var mode = crtConfig.scaleMode || 'nearest';
+    var mode = crtConfig.scaleMode || 'fill';
     var outW, outH, scale;
 
-    if (mode === 'square-pixels') {
+    if (mode === 'fill') {
+        /* Default: do not force 4:3; keep the normal canvas/window shape. */
+        outW = winW;
+        outH = winH;
+    } else if (mode === 'square-pixels') {
         scale = Math.max(1, Math.floor(Math.min(winW / sourceW, winH / sourceH)));
         outW = sourceW * scale;
         outH = sourceH * scale;
