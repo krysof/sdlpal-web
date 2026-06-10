@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>真·仙剑奇侠传 20260610.12</title>
+    <title>真·仙剑奇侠传 20260610.13</title>
     <link rel="icon" href="icon.png" type="image/png">
     <style>
       :root {
@@ -40,6 +40,19 @@
         background: #000;
         outline: none;
       }
+      #crtCanvas {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        display: none;
+        background: #000;
+        image-rendering: pixelated;
+        pointer-events: none;
+        z-index: 2;
+      }
+      #gameFrame.crt-enabled #crtCanvas { display: block; }
+      #gameFrame.crt-enabled canvas.emscripten { opacity: 0; }
       #loadingScreen {
         position: fixed;
         inset: 0;
@@ -241,6 +254,11 @@
         color: #fff;
       }
       .audio-toggle:active { transform: translateY(1px) scale(.98); }
+      .audio-toggle.crt-on {
+        background: rgba(246,216,120,.88);
+        color: #1a0906;
+        text-shadow: none;
+      }
       #btnStartGame {
         display: none;
         margin-top: 22px;
@@ -399,6 +417,7 @@
   <body>
     <div id="gameFrame">
       <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+      <canvas id="crtCanvas" aria-hidden="true"></canvas>
     </div>
 
     <div id="utilityBar">
@@ -409,6 +428,7 @@
     </div>
 
     <div id="audioControls" aria-label="音訊開關">
+      <button id="btnToggleCrt" class="audio-toggle off" onclick="toggleCrtMode();" title="啟用CRT畫面" aria-label="啟用CRT畫面">CRT</button>
       <button id="btnToggleSceneInfo" class="audio-toggle off" onclick="toggleSceneInfo();" title="顯示場景資訊" aria-label="顯示場景資訊">📍</button>
       <button id="btnToggleSound" class="audio-toggle" onclick="toggleSoundMute();" title="禁用聲音" aria-label="禁用聲音">🔊</button>
       <button id="btnToggleVoice" class="audio-toggle" onclick="toggleVoiceMute();" title="禁用語音" aria-label="禁用語音">🗣️</button>
@@ -449,9 +469,9 @@
     <div id="loadingScreen">
       <div class="loading-card">
         <img id="logo" src="icon.png" alt="SDLPAL">
-        <h1>真·仙剑奇侠传 20260610.12</h1>
+        <h1>真·仙剑奇侠传 20260610.13</h1>
         <div class="subtitle">SDLPAL Web Edition</div>
-        <div id="buildVersion">版本 20260610.12</div>
+        <div id="buildVersion">版本 20260610.13</div>
         <div class="tuning-panel" id="tuningPanel">
           <label class="tuning-setting"><span id="expLabelText">戰鬥經驗</span><input id="expMultiplier" type="range" min="1" max="50" step="1" value="5"><span class="tuning-value"><span id="expMultiplierValue">5</span> 倍</span></label>
           <label class="tuning-setting"><span id="cashLabelText">戰鬥金錢</span><input id="cashMultiplier" type="range" min="1" max="100" step="1" value="5"><span class="tuning-value"><span id="cashMultiplierValue">5</span> 倍</span></label>
@@ -467,8 +487,8 @@
     </div>
 
     <script type="text/javascript" src="jszip.min.js"></script>
-    <script type="text/javascript" src="main.js?v=20260610.12"></script>
-    <script type="text/javascript" src="sdlpal.js?v=20260610.12"></script>
+    <script type="text/javascript" src="main.js?v=20260610.13"></script>
+    <script type="text/javascript" src="sdlpal.js?v=20260610.13"></script>
 
     <script type="text/javascript">
       var userLang = navigator.language || navigator.userLanguage;

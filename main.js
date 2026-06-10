@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.12';
+var BUILD_VERSION = '20260610.13';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -135,6 +135,7 @@ var musicToggleElement = document.getElementById('btnToggleMusic');
 var soundToggleElement = document.getElementById('btnToggleSound');
 var voiceToggleElement = document.getElementById('btnToggleVoice');
 var sceneInfoToggleElement = document.getElementById('btnToggleSceneInfo');
+var crtToggleElement = document.getElementById('btnToggleCrt');
 var installPromise = null;
 var gameStarted = false;
 var audioUnlocked = false;
@@ -176,6 +177,319 @@ var dialogVoicePlaying = false;
 var storyVideosPlayed = {};
 var storyVideoPromise = null;
 var sharedCutsceneVideoElement = null;
+
+/*
+ * Optional arcade/CRT output pipeline.  It is deliberately OFF by default:
+ * the original SDL canvas keeps rendering normally, and this layer only copies
+ * it to a second WebGL canvas when the user taps the CRT button.
+ */
+var crtEnabled = false;
+var crtRenderer = null;
+var crtConfig = {
+    scaleMode: 'nearest',        // nearest | integer | square-pixels
+    crt: true,
+    bloom: true,
+    tonemap: 'off',              // off | reinhard | aces | lottes
+    bloomIntensity: 0.6,
+    bloomThreshold: 0.75,
+    maskStrength: 0.5,
+    scanlineStrength: 0.2,
+    inputWidth: 384,
+    inputHeight: 224
+};
+window.SDLPAL_crtConfig = crtConfig;
+
+function updateCrtButton() {
+    var frame = document.getElementById('gameFrame');
+    if (frame) frame.classList.toggle('crt-enabled', crtEnabled);
+    if (crtToggleElement) {
+        crtToggleElement.classList.toggle('off', !crtEnabled);
+        crtToggleElement.classList.toggle('crt-on', crtEnabled);
+        crtToggleElement.textContent = crtEnabled ? 'CRT' : 'CRT';
+        crtToggleElement.title = crtEnabled ? '關閉CRT畫面' : '啟用CRT畫面';
+        crtToggleElement.setAttribute('aria-label', crtToggleElement.title);
+    }
+}
+
+function setCrtScaleMode(mode) {
+    if (['nearest', 'integer', 'square-pixels'].indexOf(mode) < 0) mode = 'nearest';
+    crtConfig.scaleMode = mode;
+    if (crtEnabled && crtRenderer) crtRenderer.resize(true);
+}
+window.setCrtScaleMode = setCrtScaleMode;
+
+function toggleCrtMode() {
+    crtEnabled = !crtEnabled;
+    updateCrtButton();
+    if (crtEnabled) startCrtRenderer();
+}
+window.toggleCrtMode = toggleCrtMode;
+
+function computeCrtViewport(canvasW, canvasH, sourceW, sourceH) {
+    var dpr = Math.max(1, window.devicePixelRatio || 1);
+    var winW = canvasW / dpr;
+    var winH = canvasH / dpr;
+    var mode = crtConfig.scaleMode || 'nearest';
+    var outW, outH, scale;
+
+    if (mode === 'square-pixels') {
+        scale = Math.max(1, Math.floor(Math.min(winW / sourceW, winH / sourceH)));
+        outW = sourceW * scale;
+        outH = sourceH * scale;
+    } else if (mode === 'integer') {
+        /* 384x224 with 7:9 pixel aspect becomes exactly 4:3. */
+        var logicalW = sourceW * 7 / 9;
+        scale = Math.max(1, Math.floor(Math.min(winW / logicalW, winH / sourceH)));
+        outW = Math.round(logicalW * scale);
+        outH = Math.round(sourceH * scale);
+        if (outW > winW || outH > winH) {
+            scale = Math.max(1, Math.floor(Math.min(winW / (4 / 3), winH)));
+            outH = scale;
+            outW = Math.round(scale * 4 / 3);
+        }
+    } else {
+        if (winW / winH > 4 / 3) {
+            outH = winH;
+            outW = outH * 4 / 3;
+        } else {
+            outW = winW;
+            outH = outW * 3 / 4;
+        }
+    }
+
+    outW = Math.max(1, Math.floor(outW * dpr));
+    outH = Math.max(1, Math.floor(outH * dpr));
+    return {
+        x: Math.floor((canvasW - outW) / 2),
+        y: Math.floor((canvasH - outH) / 2),
+        w: outW,
+        h: outH
+    };
+}
+
+function createShader(gl, type, source) {
+    var sh = gl.createShader(type);
+    gl.shaderSource(sh, source);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(sh) || 'shader compile failed');
+    }
+    return sh;
+}
+
+function createProgram(gl, vs, fs) {
+    var p = gl.createProgram();
+    gl.attachShader(p, createShader(gl, gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, createShader(gl, gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(p) || 'program link failed');
+    }
+    return p;
+}
+
+function createCrtRenderer() {
+    var src = Module.canvas || document.getElementById('canvas');
+    var out = document.getElementById('crtCanvas');
+    if (!src || !out) return null;
+    var gl = out.getContext('webgl2', { alpha: false, antialias: false, preserveDrawingBuffer: false });
+    if (!gl) return null;
+
+    var vs = `#version 300 es
+precision highp float;
+in vec2 aPos;
+in vec2 aUv;
+out vec2 vUv;
+void main() {
+    vUv = aUv;
+    gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+    var fs = `#version 300 es
+precision highp float;
+uniform sampler2D uScene;
+uniform vec2 uTexel;
+uniform float uOutputHeight;
+uniform int uCrt;
+uniform int uBloom;
+uniform int uTonemap;
+uniform float uBloomIntensity;
+uniform float uBloomThreshold;
+uniform float uMaskStrength;
+uniform float uScanlineStrength;
+in vec2 vUv;
+out vec4 fragColor;
+
+float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+vec3 sampleScene(vec2 uv) { return texture(uScene, clamp(uv, vec2(0.0), vec2(1.0))).rgb; }
+vec3 brightSample(vec2 uv) {
+    vec3 c = sampleScene(uv);
+    float b = smoothstep(uBloomThreshold, 1.0, luma(c));
+    return c * b;
+}
+vec3 tonemapReinhard(vec3 c) { return c / (1.0 + c); }
+vec3 tonemapACES(vec3 x) {
+    const float a = 2.51; const float b = 0.03; const float c = 2.43; const float d = 0.59; const float e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+vec3 tonemapLottes(vec3 x) {
+    vec3 a = vec3(1.6); vec3 d = vec3(0.977); vec3 hdrMax = vec3(8.0); vec3 midIn = vec3(0.18); vec3 midOut = vec3(0.267);
+    vec3 b = (-pow(midIn, a) + pow(hdrMax, a) * midOut) / ((pow(hdrMax, a * d) - pow(midIn, a * d)) * midOut);
+    vec3 c = (pow(hdrMax, a * d) * pow(midIn, a) - pow(hdrMax, a) * pow(midIn, a * d) * midOut) / ((pow(hdrMax, a * d) - pow(midIn, a * d)) * midOut);
+    return clamp(pow(x, a) / (pow(x, a * d) * b + c), 0.0, 1.0);
+}
+
+void main() {
+    vec3 col = sampleScene(vUv);
+
+    if (uBloom == 1) {
+        float w0 = 0.227027;
+        float w1 = 0.1945946;
+        float w2 = 0.1216216;
+        float w3 = 0.054054;
+        float w4 = 0.016216;
+        vec3 bloom = brightSample(vUv) * w0;
+        bloom += (brightSample(vUv + vec2(1.0, 0.0) * uTexel * 2.0) + brightSample(vUv - vec2(1.0, 0.0) * uTexel * 2.0)) * w1 * 0.5;
+        bloom += (brightSample(vUv + vec2(0.0, 1.0) * uTexel * 2.0) + brightSample(vUv - vec2(0.0, 1.0) * uTexel * 2.0)) * w1 * 0.5;
+        bloom += (brightSample(vUv + vec2(2.0, 0.0) * uTexel * 2.0) + brightSample(vUv - vec2(2.0, 0.0) * uTexel * 2.0)) * w2 * 0.5;
+        bloom += (brightSample(vUv + vec2(0.0, 2.0) * uTexel * 2.0) + brightSample(vUv - vec2(0.0, 2.0) * uTexel * 2.0)) * w2 * 0.5;
+        bloom += (brightSample(vUv + vec2(3.0, 0.0) * uTexel * 2.0) + brightSample(vUv - vec2(3.0, 0.0) * uTexel * 2.0)) * w3 * 0.5;
+        bloom += (brightSample(vUv + vec2(0.0, 3.0) * uTexel * 2.0) + brightSample(vUv - vec2(0.0, 3.0) * uTexel * 2.0)) * w3 * 0.5;
+        bloom += (brightSample(vUv + vec2(4.0, 0.0) * uTexel * 2.0) + brightSample(vUv - vec2(4.0, 0.0) * uTexel * 2.0)) * w4 * 0.5;
+        bloom += (brightSample(vUv + vec2(0.0, 4.0) * uTexel * 2.0) + brightSample(vUv - vec2(0.0, 4.0) * uTexel * 2.0)) * w4 * 0.5;
+        col += bloom * uBloomIntensity;
+    }
+
+    if (uTonemap == 1) col = tonemapReinhard(col);
+    else if (uTonemap == 2) col = tonemapACES(col);
+    else if (uTonemap == 3) col = tonemapLottes(col);
+
+    if (uCrt == 1) {
+        float cell = max(1.0, floor(uOutputHeight / 224.0 * 0.5));
+        float triad = mod(floor(gl_FragCoord.x / cell), 3.0);
+        vec3 mask = vec3(1.0 - uMaskStrength);
+        if (triad < 1.0) mask.r = 1.0;
+        else if (triad < 2.0) mask.g = 1.0;
+        else mask.b = 1.0;
+        col *= mask;
+
+        float row = mod(floor(gl_FragCoord.y / cell), 2.0);
+        if (row < 1.0) col *= (1.0 - uScanlineStrength);
+
+        float boost = 1.30 / ((1.0 - 2.0 * uMaskStrength / 3.0) * (1.0 - uScanlineStrength / 2.0));
+        col *= boost;
+    }
+
+    fragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+}`;
+    var program = createProgram(gl, vs, fs);
+    var quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        -1, -1, 0, 0,
+         1, -1, 1, 0,
+        -1,  1, 0, 1,
+         1,  1, 1, 1
+    ]), gl.STATIC_DRAW);
+
+    var tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    var loc = {
+        aPos: gl.getAttribLocation(program, 'aPos'),
+        aUv: gl.getAttribLocation(program, 'aUv'),
+        uScene: gl.getUniformLocation(program, 'uScene'),
+        uTexel: gl.getUniformLocation(program, 'uTexel'),
+        uOutputHeight: gl.getUniformLocation(program, 'uOutputHeight'),
+        uCrt: gl.getUniformLocation(program, 'uCrt'),
+        uBloom: gl.getUniformLocation(program, 'uBloom'),
+        uTonemap: gl.getUniformLocation(program, 'uTonemap'),
+        uBloomIntensity: gl.getUniformLocation(program, 'uBloomIntensity'),
+        uBloomThreshold: gl.getUniformLocation(program, 'uBloomThreshold'),
+        uMaskStrength: gl.getUniformLocation(program, 'uMaskStrength'),
+        uScanlineStrength: gl.getUniformLocation(program, 'uScanlineStrength')
+    };
+
+    var renderer = {
+        source: src,
+        canvas: out,
+        gl: gl,
+        running: false,
+        resize: function(force) {
+            var dpr = Math.max(1, window.devicePixelRatio || 1);
+            var w = Math.max(1, Math.floor(window.innerWidth * dpr));
+            var h = Math.max(1, Math.floor(window.innerHeight * dpr));
+            if (force || out.width !== w || out.height !== h) {
+                out.width = w;
+                out.height = h;
+            }
+        },
+        render: function() {
+            if (!crtEnabled) { this.running = false; return; }
+            this.running = true;
+            this.resize(false);
+            var sw = this.source.width || crtConfig.inputWidth;
+            var sh = this.source.height || crtConfig.inputHeight;
+            var logicalW = crtConfig.inputWidth || sw;
+            var logicalH = crtConfig.inputHeight || sh;
+            var vp = computeCrtViewport(out.width, out.height, logicalW, logicalH);
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            try {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.source);
+            } catch (e) {
+                window.requestAnimationFrame(this.render.bind(this));
+                return;
+            }
+            gl.disable(gl.BLEND);
+            gl.disable(gl.DEPTH_TEST);
+            gl.viewport(0, 0, out.width, out.height);
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.viewport(vp.x, vp.y, vp.w, vp.h);
+            gl.useProgram(program);
+            gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+            gl.enableVertexAttribArray(loc.aPos);
+            gl.vertexAttribPointer(loc.aPos, 2, gl.FLOAT, false, 16, 0);
+            gl.enableVertexAttribArray(loc.aUv);
+            gl.vertexAttribPointer(loc.aUv, 2, gl.FLOAT, false, 16, 8);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.uniform1i(loc.uScene, 0);
+            gl.uniform2f(loc.uTexel, 1 / Math.max(1, sw), 1 / Math.max(1, sh));
+            gl.uniform1f(loc.uOutputHeight, vp.h);
+            gl.uniform1i(loc.uCrt, crtConfig.crt ? 1 : 0);
+            gl.uniform1i(loc.uBloom, crtConfig.bloom ? 1 : 0);
+            gl.uniform1i(loc.uTonemap, crtConfig.tonemap === 'reinhard' ? 1 : (crtConfig.tonemap === 'aces' ? 2 : (crtConfig.tonemap === 'lottes' ? 3 : 0)));
+            gl.uniform1f(loc.uBloomIntensity, crtConfig.bloomIntensity);
+            gl.uniform1f(loc.uBloomThreshold, crtConfig.bloomThreshold);
+            gl.uniform1f(loc.uMaskStrength, crtConfig.maskStrength);
+            gl.uniform1f(loc.uScanlineStrength, crtConfig.scanlineStrength);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            window.requestAnimationFrame(this.render.bind(this));
+        }
+    };
+    return renderer;
+}
+
+function startCrtRenderer() {
+    if (!crtRenderer) {
+        try { crtRenderer = createCrtRenderer(); }
+        catch (e) { Module.printErr('[crt] ' + (e && e.stack ? e.stack : e)); crtRenderer = null; }
+    }
+    if (!crtRenderer) {
+        crtEnabled = false;
+        updateCrtButton();
+        window.alert('此瀏覽器不支援CRT畫面模式。');
+        return;
+    }
+    if (!crtRenderer.running) window.requestAnimationFrame(crtRenderer.render.bind(crtRenderer));
+}
+
+updateCrtButton();
 
 function clampExpMultiplier(value) {
     var n = parseInt(value, 10);
@@ -1001,6 +1315,7 @@ window.addEventListener('load', function () {
 
 var Module = {
     preRun: [],
+    webglContextAttributes: { alpha: false, depth: true, stencil: true, antialias: false, preserveDrawingBuffer: true },
     postRun: [],
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
