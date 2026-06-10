@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.22';
+var BUILD_VERSION = '20260610.23';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -67,7 +67,7 @@ var strImportDone = 'Save files imported.';
 var strNoData = 'Error: Game data not loaded!';
 var strInit = 'Initializing...';
 var strLoading = 'Loading';
-var strDelConfirm = "This will DELETE your game data and saved games stored in browser cache. Type 'YES' to continue.";
+var strDelConfirm = "This will CLEAR ALL game data, including saved games. This cannot be undone. Type 'YES' to continue.";
 var strTips = "Bundled data mode: the first run downloads game files from ./data/ into browser cache. Keep this page open until it says Done.";
 var strBundledChecking = 'Checking bundled game data...';
 var strBundledDownloading = 'Downloading bundled game data';
@@ -88,7 +88,7 @@ if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
     strNoData = '錯誤：遊戲資料尚未載入。';
     strInit = '正在初始化...';
     strLoading = '正在加載';
-    strDelConfirm = '此操作將刪除瀏覽器快取中的遊戲資料和記錄。請輸入 "YES" 繼續：';
+    strDelConfirm = '此操作會清除包含存檔在內的所有遊戲資料，且無法復原。請輸入 "YES" 繼續：';
     strTips = '內建資料模式：首次開啟會從 ./data/ 自動下載遊戲檔案到瀏覽器快取。顯示「完成」前請勿關閉頁面。';
     strBundledChecking = '正在檢查內建遊戲資料...';
     strBundledDownloading = '正在下載內建遊戲資料';
@@ -107,7 +107,7 @@ if (userLang === 'zh-CN' || userLang.startsWith('zh-Hans') ) {
     strNoData = '錯誤：遊戲資料尚未載入。';
     strInit = '正在初始化...';
     strLoading = '正在加載';
-    strDelConfirm = '此操作將刪除瀏覽器快取中的遊戲資料和記錄。請輸入 "YES" 繼續：';
+    strDelConfirm = '此操作會清除包含存檔在內的所有遊戲資料，且無法復原。請輸入 "YES" 繼續：';
     strTips = '內建資料模式：首次開啟會從 ./data/ 自動下載遊戲檔案到瀏覽器快取。顯示「完成」前請勿關閉頁面。';
     strBundledChecking = '正在檢查內建遊戲資料...';
     strBundledDownloading = '正在下載內建遊戲資料';
