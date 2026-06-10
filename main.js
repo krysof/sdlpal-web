@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260610.11';
+var BUILD_VERSION = '20260610.12';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1274,7 +1274,7 @@ function downloadSaves() {
     var zip = new JSZip();
     var hasData = false;
     Object.keys(FS.lookupPath('/data').node.contents).forEach(function(element) {
-        if (element.endsWith('.rpg') || element.endsWith('.bmp')) {
+        if (element.endsWith('.rpg')) {
             var array = FS.readFile('/data/' + element);
             zip.file(element, array);
             hasData = true;
