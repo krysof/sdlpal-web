@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260611.7';
+var BUILD_VERSION = '20260611.8';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -2194,7 +2194,7 @@ function joystickKeyFromPoint(pad, clientX, clientY) {
     if (dist < dead) return {key: null, dx: dx, dy: dy};
     var angle = Math.atan2(dy, dx) * 180 / Math.PI;
     if (angle < 0) angle += 360;
-    var dirs = ['ArrowRight', 'PageDown', 'ArrowDown', 'End', 'ArrowLeft', 'Home', 'ArrowUp', 'PageUp'];
+    var dirs = ['ArrowRight', 'PageDown', 'ArrowLeft', 'End', 'ArrowLeft', 'Home', 'ArrowUp', 'PageUp'];
     var idx = Math.round(angle / 45) % 8;
     return {key: dirs[idx], dx: dx, dy: dy};
 }
