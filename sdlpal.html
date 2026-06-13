@@ -88,6 +88,13 @@
         margin-bottom: 10px;
         filter: drop-shadow(0 8px 20px rgba(0,0,0,.55));
       }
+      .title-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+      }
       h1 {
         margin: 0;
         color: var(--gold);
@@ -95,6 +102,29 @@
         line-height: 1.08;
         letter-spacing: .08em;
         text-shadow: 0 3px 0 rgba(0,0,0,.45), 0 0 22px rgba(246,216,120,.25);
+      }
+      .qa-forum-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 11px;
+        border: 1px solid rgba(246, 216, 120, .55);
+        border-radius: 999px;
+        color: #ffe8a8;
+        background: rgba(142, 29, 34, .58);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 18px rgba(0,0,0,.25);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .qa-forum-link:hover,
+      .qa-forum-link:focus-visible {
+        color: #fff6cf;
+        border-color: rgba(246, 216, 120, .9);
+        background: rgba(166, 107, 46, .66);
+        outline: none;
       }
       .subtitle {
         margin: 10px 0 24px;
@@ -467,7 +497,10 @@
     <div id="loadingScreen">
       <div class="loading-card">
         <img id="logo" src="icon.png" alt="SDLPAL">
-        <h1>真·仙剑奇侠传 20260611.8</h1>
+        <div class="title-row">
+          <h1>真·仙剑奇侠传 20260611.8</h1>
+          <a id="qaForumLink" class="qa-forum-link" href="https://github.com/krysof/sdlpal-web/issues" target="_blank" rel="noopener noreferrer" title="前往 GitHub Issues 问答论坛">问答论坛</a>
+        </div>
         <div class="subtitle">SDLPAL Web Edition</div>
         <div id="buildVersion">版本 20260611.8</div>
         <div class="tuning-panel" id="tuningPanel">
@@ -495,6 +528,8 @@
         document.getElementById('btnDownloadSave').textContent = '存檔管理';
         document.getElementById('btnStartGame').textContent = '開始遊戲';
         document.getElementById('tips').textContent = '首次進入會自動下載遊戲資源。準備完成後點擊「開始遊戲」，片頭可按任意鍵跳過。';
+        document.getElementById('qaForumLink').textContent = '問答論壇';
+        document.getElementById('qaForumLink').title = '前往 GitHub Issues 問答論壇';
         document.getElementById('expLabelText').textContent = '戰鬥經驗';
         document.getElementById('cashLabelText').textContent = '戰鬥金錢';
         document.getElementById('speedLabelText').textContent = '遊戲速度';
