@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260615.2';
+var BUILD_VERSION = '20260615.3';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1420,8 +1420,22 @@ function syncfsPromise(populate) {
 }
 
 async function fetchArrayBufferWithProgress(url, label, startBytes, totalBytes) {
-    var response = await fetch(url, {cache: 'no-store'});
-    if (!response.ok) throw new Error('HTTP ' + response.status + ' for ' + url);
+    var response = null;
+    var lastErr = null;
+    for (var attempt = 1; attempt <= 4; attempt++) {
+        try {
+            response = await fetch(url, {cache: 'no-store'});
+            if (response.ok) break;
+            lastErr = new Error('HTTP ' + response.status + ' for ' + url);
+        } catch (e) {
+            lastErr = e;
+        }
+        if (attempt < 4) {
+            Module.setStatus(label + ' 重試 ' + attempt + '/3');
+            await new Promise(function(resolve) { setTimeout(resolve, 700 * attempt); });
+        }
+    }
+    if (!response || !response.ok) throw (lastErr || new Error('HTTP fetch failed for ' + url));
 
     var contentLength = parseInt(response.headers.get('content-length') || '0');
     if (!response.body || !contentLength) {
@@ -2311,6 +2325,24 @@ function playIntroVideo(src, options) {
         tapPrompt.style.zIndex = '2';
 
         var done = false;
+        var lastVideoProgressAt = Date.now();
+        var lastVideoTime = -1;
+        var videoWatchdog = window.setInterval(function() {
+            if (done) return;
+            var t = 0;
+            try { t = video.currentTime || 0; } catch (e) {}
+            if (Math.abs(t - lastVideoTime) > 0.05) {
+                lastVideoTime = t;
+                lastVideoProgressAt = Date.now();
+            }
+            if (Date.now() - lastVideoProgressAt > 8000) {
+                Module.printErr('Intro video stalled, skipping: ' + src);
+                cleanup();
+            }
+        }, 1000);
+        ['playing', 'timeupdate', 'canplay'].forEach(function(type) {
+            video.addEventListener(type, function() { lastVideoProgressAt = Date.now(); });
+        });
         function onVideoError(e) {
             Module.printErr('Intro video failed: ' + src);
             cleanup();
@@ -2318,6 +2350,7 @@ function playIntroVideo(src, options) {
         function cleanup() {
             if (done) return;
             done = true;
+            if (videoWatchdog) { window.clearInterval(videoWatchdog); videoWatchdog = null; }
             window.removeEventListener('resize', updateBounds);
             window.removeEventListener('keydown', skip, true);
             window.removeEventListener('keyup', skip, true);
