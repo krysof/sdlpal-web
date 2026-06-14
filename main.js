@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260614.2';
+var BUILD_VERSION = '20260615.1';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1566,6 +1566,67 @@ function saveSlotChineseNumber(n) {
     return '壹佰';
 }
 
+
+var SAVE_SLOT_NAMES_FILE = '/data/save-names.txt';
+
+function sanitizeSaveSlotName(name) {
+    name = String(name || '').replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (name.length > 14) name = name.slice(0, 14);
+    return name;
+}
+
+function readSaveSlotNames() {
+    var names = {};
+    try {
+        var text = FS.readFile(SAVE_SLOT_NAMES_FILE, {encoding: 'utf8'});
+        String(text || '').split(/\r?\n/).forEach(function(line) {
+            if (!line) return;
+            var m = line.match(/^(\d+)[\t=](.*)$/);
+            if (!m) return;
+            var slot = parseInt(m[1], 10);
+            if (!slot || slot < 1 || slot > 100) return;
+            var name = sanitizeSaveSlotName(m[2]);
+            if (name) names[slot] = name;
+        });
+    } catch (e) {}
+    return names;
+}
+
+function writeSaveSlotNames(names) {
+    var lines = [];
+    Object.keys(names || {}).map(function(k) { return parseInt(k, 10); })
+        .filter(function(slot) { return slot >= 1 && slot <= 100 && sanitizeSaveSlotName(names[slot]); })
+        .sort(function(a, b) { return a - b; })
+        .forEach(function(slot) { lines.push(slot + '\t' + sanitizeSaveSlotName(names[slot])); });
+    if (lines.length) {
+        FS.writeFile(SAVE_SLOT_NAMES_FILE, lines.join('\n') + '\n', {encoding: 'utf8'});
+    } else {
+        try { FS.unlink(SAVE_SLOT_NAMES_FILE); } catch (e) {}
+    }
+}
+
+function defaultSaveSlotName(slot) {
+    return '文書' + saveSlotChineseNumber(slot);
+}
+
+function getSaveSlotDisplayName(slot, names) {
+    names = names || readSaveSlotNames();
+    return sanitizeSaveSlotName(names[slot]) || defaultSaveSlotName(slot);
+}
+
+function persistSaveSlotNames(names) {
+    writeSaveSlotNames(names);
+    Module.setStatus(strSyncingFs);
+    spinnerElement.style.display = 'inline-block';
+    return syncfsPromise(false).then(function() {
+        spinnerElement.style.display = 'none';
+        Module.setStatus(strDone);
+    }).catch(function(err) {
+        spinnerElement.style.display = 'none';
+        Module.printErr(err && err.stack ? err.stack : err);
+    });
+}
+
 function readLe16(data, off) {
     return data && data.length >= off + 2 ? (data[off] | (data[off + 1] << 8)) : 0;
 }
@@ -1596,6 +1657,7 @@ function formatSaveMtime(path) {
 
 function getSaveExportEntries() {
     var entries = [];
+    var saveNames = readSaveSlotNames();
     try {
         Object.keys(FS.lookupPath('/data').node.contents).forEach(function(element) {
             var m = element.match(/^(\d+)\.rpg$/i);
@@ -1612,7 +1674,8 @@ function getSaveExportEntries() {
                 name: element,
                 path: path,
                 times: times,
-                timeText: formatSaveMtime(path)
+                timeText: formatSaveMtime(path),
+                displayName: getSaveSlotDisplayName(slot, saveNames)
             });
         });
     } catch (e) {}
@@ -1623,7 +1686,10 @@ function getSaveExportEntries() {
 function exportSelectedSaves(slots) {
     var zip = new JSZip();
     var count = 0;
+    var saveNames = readSaveSlotNames();
+    var nameLines = [];
     slots.forEach(function(slot) {
+        if (sanitizeSaveSlotName(saveNames[slot])) nameLines.push(slot + '\t' + sanitizeSaveSlotName(saveNames[slot]));
         ['rpg', 'bmp'].forEach(function(ext) {
             var name = String(slot) + '.' + ext;
             var path = '/data/' + name;
@@ -1638,6 +1704,7 @@ function exportSelectedSaves(slots) {
         window.alert(strNoSave);
         return;
     }
+    if (nameLines.length) zip.file('save-names.txt', nameLines.join('\n') + '\n');
     Module.setStatus('正在打包記錄...');
     zip.generateAsync({type:'blob'}).then(function(blob) {
         var a = document.createElement('a');
@@ -1674,6 +1741,10 @@ function makeSaveManagerButton(text, primary, danger) {
 
 function getCheckedSaveManagerSlots(list) {
     return Array.prototype.slice.call(list.querySelectorAll('input[type=checkbox]:checked'))
+        .filter(function(cb) {
+            var row = cb.parentNode;
+            return !row || row.style.display !== 'none';
+        })
         .map(function(cb) { return parseInt(cb.value, 10); })
         .filter(Boolean);
 }
@@ -1684,6 +1755,7 @@ function deleteSelectedSaveSlots(slots) {
         return false;
     }
     var names = [];
+    var saveNames = readSaveSlotNames();
     slots.forEach(function(slot) {
         ['rpg', 'bmp'].forEach(function(ext) {
             var name = String(slot) + '.' + ext;
@@ -1694,13 +1766,15 @@ function deleteSelectedSaveSlots(slots) {
         window.alert(strNoSave);
         return false;
     }
-    var shown = slots.map(function(slot) { return '文書' + saveSlotChineseNumber(slot); }).join('、');
+    var shown = slots.map(function(slot) { return getSaveSlotDisplayName(slot, saveNames); }).join('、');
     if (!window.confirm('將刪除以下記錄：\n' + shown + '\n\n此操作不可復原，是否繼續？')) {
         return false;
     }
     names.forEach(function(name) {
         try { FS.unlink('/data/' + name); } catch (e) {}
     });
+    slots.forEach(function(slot) { delete saveNames[slot]; });
+    writeSaveSlotNames(saveNames);
     Module.setStatus(strSyncingFs);
     spinnerElement.style.display = 'inline-block';
     FS.syncfs(false, function(err) {
@@ -1713,6 +1787,8 @@ function deleteSelectedSaveSlots(slots) {
 
 function openSaveManager() {
     var entries = getSaveExportEntries();
+    var saveNames = readSaveSlotNames();
+    var rowRecords = [];
 
     var overlay = document.createElement('div');
     overlay.style.position = 'fixed';
@@ -1725,10 +1801,10 @@ function openSaveManager() {
     overlay.style.boxSizing = 'border-box';
 
     var panel = document.createElement('div');
-    panel.style.width = 'min(560px, calc(100vw - 28px))';
-    panel.style.maxHeight = 'min(700px, calc(100vh - 40px))';
+    panel.style.width = 'min(620px, calc(100vw - 28px))';
+    panel.style.maxHeight = 'min(740px, calc(100vh - 40px))';
     panel.style.display = 'grid';
-    panel.style.gridTemplateRows = 'auto 1fr auto';
+    panel.style.gridTemplateRows = 'auto auto 1fr auto';
     panel.style.border = '1px solid rgba(246,216,120,.48)';
     panel.style.borderRadius = '18px';
     panel.style.background = 'linear-gradient(180deg, rgba(50,21,17,.96), rgba(18,11,10,.96))';
@@ -1738,50 +1814,126 @@ function openSaveManager() {
 
     var title = document.createElement('div');
     title.textContent = '存檔管理';
-    title.style.padding = '16px 18px 12px';
+    title.style.padding = '16px 18px 8px';
     title.style.fontWeight = '900';
     title.style.fontSize = '18px';
     title.style.color = '#f6d878';
+
+    var filterWrap = document.createElement('div');
+    filterWrap.style.padding = '0 14px 10px';
+    var filterInput = document.createElement('input');
+    filterInput.type = 'search';
+    filterInput.placeholder = '搜尋文書名稱、次數、時間...';
+    filterInput.style.width = '100%';
+    filterInput.style.boxSizing = 'border-box';
+    filterInput.style.border = '1px solid rgba(246,216,120,.38)';
+    filterInput.style.borderRadius = '999px';
+    filterInput.style.padding = '10px 14px';
+    filterInput.style.background = 'rgba(0,0,0,.38)';
+    filterInput.style.color = '#ffeec1';
+    filterInput.style.outline = 'none';
+    filterInput.style.fontSize = '15px';
+    filterWrap.appendChild(filterInput);
 
     var list = document.createElement('div');
     list.style.overflow = 'auto';
     list.style.padding = '4px 14px 10px';
 
-    if (!entries.length) {
-        var empty = document.createElement('div');
-        empty.textContent = '目前沒有可管理的記錄。';
-        empty.style.padding = '22px 8px';
-        empty.style.color = 'rgba(255,238,193,.72)';
-        empty.style.textAlign = 'center';
-        list.appendChild(empty);
-    } else {
-        entries.forEach(function(e) {
-            var label = document.createElement('label');
-            label.style.display = 'grid';
-            label.style.gridTemplateColumns = '26px 1fr';
-            label.style.alignItems = 'center';
-            label.style.gap = '8px';
-            label.style.padding = '10px 8px';
-            label.style.borderBottom = '1px solid rgba(246,216,120,.13)';
-            label.style.fontSize = '15px';
-            label.style.userSelect = 'none';
+    var empty = document.createElement('div');
+    empty.textContent = entries.length ? '沒有符合條件的記錄。' : '目前沒有可管理的記錄。';
+    empty.style.padding = '22px 8px';
+    empty.style.color = 'rgba(255,238,193,.72)';
+    empty.style.textAlign = 'center';
+    empty.style.display = entries.length ? 'none' : 'block';
+    list.appendChild(empty);
 
-            var cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = true;
-            cb.value = String(e.slot);
-            cb.style.width = '20px';
-            cb.style.height = '20px';
-
-            var text = document.createElement('div');
-            text.innerHTML = '<b>文書' + saveSlotChineseNumber(e.slot) + '</b>' +
-                '　<span style="color:#f6d878">次數 ' + e.times + '</span>' +
-                '　<span style="color:rgba(255,238,193,.72)">' + e.timeText + '</span>';
-            label.appendChild(cb);
-            label.appendChild(text);
-            list.appendChild(label);
-        });
+    function refreshRowText(record) {
+        record.nameText.textContent = getSaveSlotDisplayName(record.entry.slot, saveNames);
+        record.metaText.textContent = '次數 ' + record.entry.times + '　' + record.entry.timeText;
+        record.searchText = (record.nameText.textContent + ' ' + defaultSaveSlotName(record.entry.slot) + ' ' +
+            record.entry.slot + ' ' + record.entry.times + ' ' + record.entry.timeText).toLowerCase();
     }
+
+    function applyFilter() {
+        var q = filterInput.value.trim().toLowerCase();
+        var visible = 0;
+        rowRecords.forEach(function(record) {
+            var ok = !q || record.searchText.indexOf(q) >= 0;
+            record.row.style.display = ok ? 'grid' : 'none';
+            if (ok) visible++;
+        });
+        empty.style.display = visible ? 'none' : 'block';
+    }
+
+    function renameSlot(slot) {
+        var current = getSaveSlotDisplayName(slot, saveNames);
+        var fallback = defaultSaveSlotName(slot);
+        var value = window.prompt('輸入新的文書名稱：\n留空可恢復預設名稱。', current === fallback ? '' : current);
+        if (value === null) return;
+        value = sanitizeSaveSlotName(value);
+        if (value) saveNames[slot] = value;
+        else delete saveNames[slot];
+        rowRecords.forEach(function(record) {
+            if (record.entry.slot === slot) refreshRowText(record);
+        });
+        applyFilter();
+        persistSaveSlotNames(saveNames);
+    }
+
+    entries.forEach(function(e) {
+        var row = document.createElement('div');
+        row.style.display = 'grid';
+        row.style.gridTemplateColumns = '26px 1fr auto';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+        row.style.padding = '10px 8px';
+        row.style.borderBottom = '1px solid rgba(246,216,120,.13)';
+        row.style.fontSize = '15px';
+        row.style.userSelect = 'none';
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.value = String(e.slot);
+        cb.style.width = '20px';
+        cb.style.height = '20px';
+
+        var text = document.createElement('div');
+        text.style.minWidth = '0';
+        var nameText = document.createElement('b');
+        nameText.style.display = 'block';
+        nameText.style.overflow = 'hidden';
+        nameText.style.textOverflow = 'ellipsis';
+        nameText.style.whiteSpace = 'nowrap';
+        var metaText = document.createElement('span');
+        metaText.style.color = 'rgba(255,238,193,.72)';
+        metaText.style.fontSize = '13px';
+        text.appendChild(nameText);
+        text.appendChild(metaText);
+
+        var renameBtn = makeSaveManagerButton('重命名', false, false);
+        renameBtn.style.padding = '7px 10px';
+        renameBtn.style.fontSize = '13px';
+        renameBtn.onclick = function(ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            renameSlot(e.slot);
+        };
+
+        row.addEventListener('click', function(ev) {
+            if (ev.target !== cb && ev.target !== renameBtn) cb.checked = !cb.checked;
+        });
+        row.appendChild(cb);
+        row.appendChild(text);
+        row.appendChild(renameBtn);
+        list.appendChild(row);
+
+        var record = {entry: e, row: row, nameText: nameText, metaText: metaText, searchText: ''};
+        rowRecords.push(record);
+        refreshRowText(record);
+    });
+
+    filterInput.oninput = applyFilter;
 
     var buttons = document.createElement('div');
     buttons.style.display = 'flex';
@@ -1798,8 +1950,8 @@ function openSaveManager() {
     var downloadBtn = makeSaveManagerButton('下載', true, false);
     var closeBtn = makeSaveManagerButton('關閉', false, false);
 
-    allBtn.onclick = function() { list.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = true; }); };
-    noneBtn.onclick = function() { list.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = false; }); };
+    allBtn.onclick = function() { list.querySelectorAll('input[type=checkbox]').forEach(function(cb) { if (cb.closest('div').style.display !== 'none') cb.checked = true; }); };
+    noneBtn.onclick = function() { list.querySelectorAll('input[type=checkbox]').forEach(function(cb) { if (cb.closest('div').style.display !== 'none') cb.checked = false; }); };
     uploadBtn.onclick = function() {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         var input = document.getElementById('inputUploadSave');
@@ -1829,10 +1981,12 @@ function openSaveManager() {
     }
     buttons.appendChild(closeBtn);
     panel.appendChild(title);
+    panel.appendChild(filterWrap);
     panel.appendChild(list);
     panel.appendChild(buttons);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
+    window.setTimeout(function(){ filterInput.focus(); }, 50);
 }
 
 function downloadSaves() {
@@ -1864,6 +2018,24 @@ function confirmOverwriteSaves(names) {
 }
 
 function importSaveFileEntries(entries) {
+    var importedSaveNames = {};
+    entries = entries.filter(function(e) {
+        if (e.name === 'save-names.txt') {
+            try {
+                var text = new TextDecoder('utf-8').decode(e.data);
+                String(text || '').split(/\r?\n/).forEach(function(line) {
+                    var m = line.match(/^(\d+)[\t=](.*)$/);
+                    if (m) {
+                        var slot = parseInt(m[1], 10);
+                        var nm = sanitizeSaveSlotName(m[2]);
+                        if (slot >= 1 && slot <= 100 && nm) importedSaveNames[slot] = nm;
+                    }
+                });
+            } catch (err) {}
+            return false;
+        }
+        return true;
+    });
     var names = entries.map(function(e) { return e.name; });
     if (!confirmOverwriteSaves(names)) {
         spinnerElement.style.display = 'none';
@@ -1873,6 +2045,11 @@ function importSaveFileEntries(entries) {
     entries.forEach(function(e) {
         FS.writeFile('/data/' + e.name, e.data, {encoding: 'binary'});
     });
+    if (Object.keys(importedSaveNames).length) {
+        var saveNames = readSaveSlotNames();
+        Object.keys(importedSaveNames).forEach(function(slot) { saveNames[slot] = importedSaveNames[slot]; });
+        writeSaveSlotNames(saveNames);
+    }
     Module.setStatus(strSyncingFs);
     return syncfsPromise(false).then(function() {
         spinnerElement.style.display = 'none';
@@ -1906,9 +2083,11 @@ function uploadSaves(file) {
         var seen = {};
         z.forEach(function(relativePath, zipEntry) {
             if (zipEntry.dir || relativePath.includes('._')) return;
+            var baseName = String(relativePath || '').split('/').pop().toLowerCase();
             var target = saveImportTargetName(relativePath);
+            if (baseName === 'save-names.txt') target = 'save-names.txt';
             if (!target) return;
-            if (!/\.(rpg|prg|bmp)$/i.test(relativePath)) return;
+            if (target !== 'save-names.txt' && !/\.(rpg|prg|bmp)$/i.test(relativePath)) return;
             if (seen[target]) return;
             seen[target] = true;
             promises.push(zipEntry.async('uint8array').then(function(arr) {
