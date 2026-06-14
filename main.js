@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260615.1';
+var BUILD_VERSION = '20260615.2';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1868,16 +1868,110 @@ function openSaveManager() {
     function renameSlot(slot) {
         var current = getSaveSlotDisplayName(slot, saveNames);
         var fallback = defaultSaveSlotName(slot);
-        var value = window.prompt('輸入新的文書名稱：\n留空可恢復預設名稱。', current === fallback ? '' : current);
-        if (value === null) return;
-        value = sanitizeSaveSlotName(value);
-        if (value) saveNames[slot] = value;
-        else delete saveNames[slot];
-        rowRecords.forEach(function(record) {
-            if (record.entry.slot === slot) refreshRowText(record);
-        });
-        applyFilter();
-        persistSaveSlotNames(saveNames);
+
+        var frame = document.createElement('div');
+        frame.style.position = 'fixed';
+        frame.style.inset = '0';
+        frame.style.zIndex = '120001';
+        frame.style.display = 'grid';
+        frame.style.placeItems = 'center';
+        frame.style.padding = '18px';
+        frame.style.boxSizing = 'border-box';
+        frame.style.background = 'rgba(0,0,0,.52)';
+
+        var box = document.createElement('div');
+        box.style.width = 'min(430px, calc(100vw - 34px))';
+        box.style.border = '1px solid rgba(246,216,120,.62)';
+        box.style.borderRadius = '16px';
+        box.style.background = 'linear-gradient(180deg, rgba(70,28,20,.98), rgba(20,10,8,.98))';
+        box.style.boxShadow = '0 18px 64px rgba(0,0,0,.72), inset 0 0 38px rgba(246,216,120,.05)';
+        box.style.color = '#ffeec1';
+        box.style.padding = '16px';
+        box.style.boxSizing = 'border-box';
+
+        var heading = document.createElement('div');
+        heading.textContent = '重命名文書';
+        heading.style.color = '#f6d878';
+        heading.style.fontWeight = '900';
+        heading.style.fontSize = '18px';
+        heading.style.letterSpacing = '.08em';
+        heading.style.marginBottom = '12px';
+        heading.style.textShadow = '0 2px 0 rgba(0,0,0,.5)';
+
+        var oldLine = document.createElement('div');
+        oldLine.textContent = '目前：' + current;
+        oldLine.style.color = 'rgba(255,238,193,.78)';
+        oldLine.style.fontSize = '14px';
+        oldLine.style.marginBottom = '10px';
+
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.maxLength = 14;
+        nameInput.value = current === fallback ? '' : current;
+        nameInput.placeholder = fallback;
+        nameInput.style.width = '100%';
+        nameInput.style.boxSizing = 'border-box';
+        nameInput.style.border = '1px solid rgba(246,216,120,.55)';
+        nameInput.style.borderRadius = '10px';
+        nameInput.style.background = 'rgba(0,0,0,.46)';
+        nameInput.style.color = '#fff4ca';
+        nameInput.style.padding = '11px 12px';
+        nameInput.style.fontSize = '17px';
+        nameInput.style.fontWeight = '800';
+        nameInput.style.outline = 'none';
+
+        var hint = document.createElement('div');
+        hint.textContent = '留空後確定，可恢復預設名稱「' + fallback + '」。';
+        hint.style.color = 'rgba(255,238,193,.62)';
+        hint.style.fontSize = '12px';
+        hint.style.margin = '9px 0 14px';
+
+        var btns = document.createElement('div');
+        btns.style.display = 'flex';
+        btns.style.gap = '8px';
+        btns.style.justifyContent = 'flex-end';
+
+        var okBtn = makeSaveManagerButton('確定', true, false);
+        var cancelBtn = makeSaveManagerButton('取消', false, false);
+
+        function closeFrame() {
+            if (frame.parentNode) frame.parentNode.removeChild(frame);
+        }
+        function submitName() {
+            var value = sanitizeSaveSlotName(nameInput.value);
+            if (value) saveNames[slot] = value;
+            else delete saveNames[slot];
+            rowRecords.forEach(function(record) {
+                if (record.entry.slot === slot) refreshRowText(record);
+            });
+            applyFilter();
+            persistSaveSlotNames(saveNames);
+            closeFrame();
+        }
+
+        okBtn.onclick = submitName;
+        cancelBtn.onclick = closeFrame;
+        frame.onclick = function(ev) { if (ev.target === frame) closeFrame(); };
+        nameInput.onkeydown = function(ev) {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                submitName();
+            } else if (ev.key === 'Escape') {
+                ev.preventDefault();
+                closeFrame();
+            }
+        };
+
+        btns.appendChild(cancelBtn);
+        btns.appendChild(okBtn);
+        box.appendChild(heading);
+        box.appendChild(oldLine);
+        box.appendChild(nameInput);
+        box.appendChild(hint);
+        box.appendChild(btns);
+        frame.appendChild(box);
+        document.body.appendChild(frame);
+        window.setTimeout(function() { nameInput.focus(); nameInput.select(); }, 30);
     }
 
     entries.forEach(function(e) {
