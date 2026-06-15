@@ -1,4 +1,4 @@
-var BUILD_VERSION = '20260615.5';
+var BUILD_VERSION = '20260615.6';
 var APP_TITLE = '真·仙剑奇侠传 ' + BUILD_VERSION;
 function forceMediaTitle() {
     try {
@@ -1946,6 +1946,7 @@ function openSaveManager() {
         btns.style.justifyContent = 'flex-end';
 
         var okBtn = makeSaveManagerButton('確定', true, false);
+        var clearBtn = makeSaveManagerButton('清除', false, false);
         var cancelBtn = makeSaveManagerButton('取消', false, false);
 
         function closeFrame() {
@@ -1964,19 +1965,32 @@ function openSaveManager() {
         }
 
         okBtn.onclick = submitName;
+        clearBtn.onclick = function(ev) {
+            if (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+            }
+            nameInput.value = '';
+            nameInput.focus();
+        };
         cancelBtn.onclick = closeFrame;
         frame.onclick = function(ev) { if (ev.target === frame) closeFrame(); };
-        nameInput.onkeydown = function(ev) {
-            if (ev.key === 'Enter') {
-                ev.preventDefault();
-                submitName();
-            } else if (ev.key === 'Escape') {
-                ev.preventDefault();
-                closeFrame();
-            }
-        };
+        ['keydown', 'keyup', 'keypress', 'beforeinput', 'input', 'compositionstart', 'compositionupdate', 'compositionend'].forEach(function(type) {
+            nameInput.addEventListener(type, function(ev) {
+                ev.stopPropagation();
+                if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+                if (type === 'keydown' && ev.key === 'Enter') {
+                    ev.preventDefault();
+                    submitName();
+                } else if (type === 'keydown' && ev.key === 'Escape') {
+                    ev.preventDefault();
+                    closeFrame();
+                }
+            }, true);
+        });
 
         btns.appendChild(cancelBtn);
+        btns.appendChild(clearBtn);
         btns.appendChild(okBtn);
         box.appendChild(heading);
         box.appendChild(oldLine);
@@ -2324,24 +2338,6 @@ function playIntroVideo(src, options) {
         tapPrompt.style.display = 'none';
         tapPrompt.style.zIndex = '2';
 
-        var skipPrompt = document.createElement('button');
-        skipPrompt.type = 'button';
-        skipPrompt.textContent = '跳過片頭';
-        skipPrompt.style.position = 'absolute';
-        skipPrompt.style.right = '14px';
-        skipPrompt.style.bottom = '14px';
-        skipPrompt.style.padding = '10px 16px';
-        skipPrompt.style.border = '1px solid rgba(246, 226, 161, .86)';
-        skipPrompt.style.borderRadius = '999px';
-        skipPrompt.style.background = 'rgba(0, 0, 0, .68)';
-        skipPrompt.style.color = '#f6e2a1';
-        skipPrompt.style.font = '700 16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
-        skipPrompt.style.letterSpacing = '.08em';
-        skipPrompt.style.zIndex = '3';
-        skipPrompt.style.cursor = 'pointer';
-        skipPrompt.style.touchAction = 'manipulation';
-        skipPrompt.style.display = options.showSkip === false ? 'none' : 'block';
-
         var done = false;
         var lastVideoProgressAt = Date.now();
         var lastVideoTime = -1;
@@ -2370,7 +2366,6 @@ function playIntroVideo(src, options) {
             done = true;
             if (videoWatchdog) { window.clearInterval(videoWatchdog); videoWatchdog = null; }
             window.removeEventListener('resize', updateBounds);
-            skipPrompt.removeEventListener('click', forceSkip);
             window.removeEventListener('keydown', skip, true);
             window.removeEventListener('keyup', skip, true);
             video.removeEventListener('ended', cleanup);
@@ -2404,16 +2399,6 @@ function playIntroVideo(src, options) {
             });
         }
 
-        function forceSkip(e) {
-            if (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-            }
-            introInputBlockUntil = Date.now() + 900;
-            cleanup();
-        }
-
         function skip(e) {
             if (e) {
                 e.preventDefault();
@@ -2433,7 +2418,6 @@ function playIntroVideo(src, options) {
 
         video.addEventListener('ended', cleanup);
         video.addEventListener('error', onVideoError);
-        skipPrompt.addEventListener('click', forceSkip);
         wrap.addEventListener('click', skip);
         window.addEventListener('keydown', skip, true);
         window.addEventListener('keyup', skip, true);
@@ -2441,7 +2425,6 @@ function playIntroVideo(src, options) {
 
         wrap.appendChild(video);
         wrap.appendChild(tapPrompt);
-        wrap.appendChild(skipPrompt);
         currentIntroVideo = video;
         updateBounds();
         document.body.appendChild(wrap);
